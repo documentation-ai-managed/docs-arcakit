@@ -213,7 +213,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /{tenant_slug}/arca/ws_sr_constancia_inscripcion/status:
+  /{account_slug}/arca/ws_sr_constancia_inscripcion/status:
     get:
       tags:
         - ARCA - Constancia Inscripción
@@ -221,7 +221,7 @@ paths:
       description: Verifica conectividad con el servicio ARCA. Usa certificado de aplicación (global o de cuenta según configuración).
       operationId: arcaConstanciaStatus
       parameters:
-        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/AccountSlug'
       responses:
         '200':
           description: Servicio disponible
@@ -245,7 +245,7 @@ paths:
         '503':
           $ref: '#/components/responses/CertificateNotConfigured'
 
-  /{tenant_slug}/arca/ws_sr_constancia_inscripcion/constancias/{cuit}:
+  /{account_slug}/arca/ws_sr_constancia_inscripcion/constancias/{cuit}:
     get:
       tags:
         - ARCA - Constancia Inscripción
@@ -253,7 +253,7 @@ paths:
       description: Obtiene datos de inscripción de una entidad por su CUIT
       operationId: arcaGetConstancia
       parameters:
-        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/AccountSlug'
         - name: cuit
           in: path
           required: true
@@ -342,7 +342,7 @@ paths:
         '503':
           $ref: '#/components/responses/CertificateNotConfigured'
 
-  /{tenant_slug}/arca/ws_sr_constancia_inscripcion/constancias/batch:
+  /{account_slug}/arca/ws_sr_constancia_inscripcion/constancias/batch:
     post:
       tags:
         - ARCA - Constancia Inscripción
@@ -350,7 +350,7 @@ paths:
       description: Obtiene datos de inscripción para múltiples CUITs (1-10 por request)
       operationId: arcaGetConstanciasBatch
       parameters:
-        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/AccountSlug'
       requestBody:
         required: true
         content:
@@ -417,14 +417,16 @@ components:
       description: Token de sesión obtenido vía magic link authentication. Se envía automáticamente como cookie después del login.
 
   parameters:
-    TenantSlug:
-      name: tenant_slug
+    AccountSlug:
+      name: account_slug
       in: path
       required: true
-      description: Slug de la cuenta (ej. 0000001 o /0000001)
+      description: ID numérico de la cuenta en la URL (ej. 1, 2, 3). La ruta es /1, /2, etc.
       schema:
         type: string
-      example: '0000001'
+        pattern: '^\d+$'
+        default: '1'
+      example: '1'
 
   responses:
     Unauthorized:
