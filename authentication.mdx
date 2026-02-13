@@ -1,57 +1,256 @@
 ---
-title: Authentication (Sample)
-description: Sample guidance for authentication and OpenAPI usage.
+title: Autenticación
+description: Guía de autenticación y uso de la API de ARCAkit
 ---
 
-## Overview
+## Descripción general
 
-This is sample content. Replace tokens, URLs, headers, and flows with your real authentication requirements.
+ARCAkit ofrece una API REST para integración con los webservices ARCA/AFIP. La autenticación se realiza mediante tokens Bearer o magic links para apps nativas.
 
 <Callout kind="info">
-
-This site ships with placeholder content for authentication. Update this page and `openapi.yaml` to match your real API before sharing with users.
-
+La referencia de API se genera automáticamente desde `openapi.yaml`. Mantén ese archivo actualizado a medida que evoluciona la API.
 </Callout>
 
-This API uses OpenAPI to describe endpoints, parameters, and responses. The reference is generated from `openapi.yaml`, so keep that file up to date as your API evolves.
+## Métodos de autenticación
 
-## Authentication
+ARCAkit soporta dos métodos de autenticación:
 
-Use a bearer token in the `Authorization` header for authenticated requests. Replace the base URL and token with values for your own API.
+### 1. Personal Access Tokens
 
+Los tokens de acceso personal son tokens de larga duración ideales para scripts e integraciones. Para obtener uno:
+
+1. Ve a **My → Access tokens** en la aplicación
+2. Haz clic en "Generate new access token"
+3. Asigna una descripción y selecciona el permiso:
+   - **Read**: permite solo lectura (GET, HEAD)
+   - **Read + Write**: permite lectura y escritura
+
+<Callout kind="warning">
+**Importante**: Un access token es como una contraseña. Mantenlo secreto y no lo compartas con nadie. Cualquier persona o aplicación con tu token puede realizar acciones en tu nombre.
+</Callout>
+
+Incluye el token en el header `Authorization`:
 ```bash
-curl https://api.example.com/v1/example \
-  -H "Authorization: Bearer YOUR_TOKEN"
+curl https://app.arcakit.dev/my/identity \
+  -H "Authorization: Bearer TU_TOKEN_AQUI" \
+  -H "Accept: application/json"
 ```
 
 <ParamField header="Authorization" param-type="string" required="true">
-  `Bearer YOUR_TOKEN`
+  `Bearer TU_TOKEN_AQUI`
 </ParamField>
 
-## Keep OpenAPI in sync
+### 2. Magic Link Authentication
 
-Define your authentication and base settings in `openapi.yaml` so the API Reference stays accurate and consistent.
+Para apps nativas, puedes autenticar usuarios mediante magic links. Es un proceso de dos pasos:
 
-At a minimum, you should:
+#### Paso 1: Solicitar magic link
 
-- Define one or more security schemes that describe how clients authenticate (for example, bearer token, API key in a header, or other scheme).
-- Reference those security schemes on operations that require authentication so they are clearly marked as secured.
-- Set the correct base URL and any required global headers (for example, versioning or tenant headers) so example requests are copy-pasteable.
+Envía el email del usuario para que reciba un código de 6 caracteres:
+```bash
+curl -X POST https://app.arcakit.dev/session \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{"email_address": "user@example.com"}'
+```
 
-When your real authentication flow changes (for example, new header names, token formats, or additional requirements), update `openapi.yaml`. The generated API Reference will then reflect your current auth model without needing to edit each endpoint page by hand.
+**Respuesta:**
+```
+HTTP/1.1 201 Created
+Set-Cookie: pending_authentication_token=...; HttpOnly; SameSite=Lax
+```
+```json
+{
+  "pending_authentication_token": "eyJfcmFpbHMi..."
+}
+```
 
-## Using the API reference
+La respuesta incluye un `pending_authentication_token` tanto en el JSON como en una cookie. Las apps nativas deben guardar este token.
 
-Use the API Reference to explore endpoints, required parameters, and example responses. When you change authentication headers or base URLs, update `openapi.yaml` so the generated reference matches what your clients should use.
+#### Paso 2: Enviar el código
 
-## Common mistakes
+Una vez que el usuario recibe el email con el código de 6 caracteres:
+```bash
+curl -X POST https://app.arcakit.dev/session/magic_link \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -H "Cookie: pending_authentication_token=eyJfcmFpbHMi..." \
+  -d '{"code": "ABC123"}'
+```
 
-<Expandable title="Why am I getting a 401?" default-open="false">
+**Respuesta:**
+```json
+{
+  "session_token": "eyJfcmFpbHMi..."
+}
+```
 
-Verify that:
+El `session_token` se puede usar para autenticar requests subsiguientes incluyéndolo como cookie.
 
-- The token is valid and not expired.
-- The token is sent in the `Authorization` header.
-- The header value includes the `Bearer` prefix and a space before the token.
+#### Cerrar sesión
 
+Para destruir la sesión del servidor:
+```bash
+curl -X DELETE https://app.arcakit.dev/session \
+  -H "Accept: application/json" \
+  -H "Cookie: session_token=eyJfcmFpbHMi..."
+```
+
+Retorna `204 No Content` en caso de éxito.
+
+## Estructura de la API
+
+### Base URL
+```
+https://app.arcakit.dev
+```
+
+### Formato de respuesta
+
+Todas las respuestas son JSON. Envía siempre:
+- `Accept: application/json`
+- `Content-Type: application/json` (para POST/PUT)
+
+### Tenant slug en rutas
+
+Los endpoints que requieren una cuenta (especialmente ARCA) usan el slug del tenant en la ruta:
+```
+/{tenant_slug}/arca/wsfe/status
+```
+
+Ejemplo: `https://app.arcakit.dev/1/arca/wsfe/status`
+
+Usa `GET /my/identity` para obtener la lista de cuentas y sus slugs.
+
+## Certificados ARCA
+
+Los endpoints de ARCA requieren certificados configurados:
+
+- **Certificado de aplicación (global)**: Para servicios de catálogo (Constancia, Padrón)
+- **Certificado de cuenta**: Para servicios transaccionales (WSFE, WSFeCred)
+- **Certificado de catálogo**: Según configuración SaaS, puede usar certificado global o de cuenta
+
+Si el certificado requerido no está configurado, recibirás un **503 Service Unavailable**:
+```json
+{
+  "error": "Certificate not configured"
+}
+```
+
+## Códigos de estado HTTP
+
+| Código | Descripción |
+|--------|-------------|
+| **200** | Éxito |
+| **201** | Recurso creado |
+| **204** | Éxito sin contenido |
+| **304** | No modificado (usa ETag para caching) |
+| **400** | Request malformado |
+| **401** | No autorizado (token inválido o faltante) |
+| **403** | Sin permisos |
+| **404** | Recurso no encontrado |
+| **406** | Formato no soportado (falta header Accept: application/json) |
+| **422** | Validación fallida |
+| **429** | Rate limit excedido |
+| **500** | Error interno del servidor |
+| **502** | Error de ARCA/upstream |
+| **503** | Certificado no configurado o ARCA inalcanzable |
+
+## Caching con ETags
+
+La mayoría de los endpoints retornan headers `ETag` y `Cache-Control`. Úsalos para evitar re-descargar datos sin cambios:
+```bash
+# Primera request
+curl -H "Authorization: Bearer TOKEN" \
+  https://app.arcakit.dev/my/identity
+# Response incluye: ETag: "abc123"
+
+# Request subsiguiente
+curl -H "Authorization: Bearer TOKEN" \
+  -H "If-None-Match: abc123" \
+  https://app.arcakit.dev/my/identity
+# Si no hay cambios: HTTP 304 Not Modified
+```
+
+## Paginación
+
+Los endpoints que retornan listas están paginados. Si hay más resultados, la respuesta incluye un header `Link` con `rel="next"`:
+```
+Link: <https://app.arcakit.dev/my/accounts?page=2>; rel="next"
+```
+
+El tamaño de página es dinámico (páginas iniciales más pequeñas, páginas posteriores más grandes).
+
+## Parámetros tipo lista
+
+Cuando un endpoint acepta listas, repite el nombre del parámetro:
+```
+?cuits[]=20123456789&cuits[]=20987654321
+```
+
+Los parámetros de lista siempre terminan en `[]`.
+
+## Rate limiting
+
+Algunos endpoints tienen límites de requests:
+
+- **Signup**: 10 requests por hora
+- **Magic link request/submit**: limitado por rate limiter
+
+Si excedes el límite, recibirás **429 Too Many Requests**.
+
+## Mantener OpenAPI sincronizado
+
+Define tu autenticación y configuración base en `openapi.yaml` para que la Referencia de API se mantenga precisa.
+
+Como mínimo, debes:
+- Definir esquemas de seguridad que describan cómo se autentican los clientes
+- Referenciar esos esquemas en operaciones que requieren autenticación
+- Configurar la URL base correcta y headers globales necesarios
+
+Cuando cambien los flujos de autenticación, actualiza `openapi.yaml`. La referencia generada reflejará automáticamente el modelo actual sin editar cada página manualmente.
+
+## Usar la Referencia de API
+
+Usa la Referencia de API para explorar endpoints, parámetros requeridos y respuestas de ejemplo. Cuando cambies headers de autenticación o URLs base, actualiza `openapi.yaml` para que la referencia coincida con lo que tus clientes deben usar.
+
+## Errores comunes
+
+<Expandable title="¿Por qué recibo un 401?" default-open="false">
+Verifica que:
+- El token sea válido y no esté expirado
+- El token se envíe en el header `Authorization`
+- El header incluya el prefijo `Bearer` y un espacio antes del token
+- Estés usando el formato correcto: `Authorization: Bearer TU_TOKEN`
+</Expandable>
+
+<Expandable title="¿Por qué recibo un 503 con 'Certificate not configured'?" default-open="false">
+Los endpoints de ARCA requieren certificados configurados:
+- **Servicios de catálogo** (Constancia, Padrón): necesitan certificado de aplicación o de cuenta según configuración
+- **Servicios transaccionales** (WSFE, WSFeCred): necesitan certificado de cuenta
+
+Ve a **Account → Certificate** en la aplicación para configurar el certificado necesario.
+</Expandable>
+
+<Expandable title="¿Por qué recibo un 502 con error de ARCA?" default-open="false">
+El error 502 indica que ARCA/AFIP retornó un error. El mensaje de error en el body contiene los detalles específicos de ARCA. Ejemplos comunes:
+- "No existe persona con ese Id" - CUIT no encontrado
+- Errores de validación de datos en comprobantes
+- Servicios de ARCA temporalmente no disponibles
+</Expandable>
+
+<Expandable title="¿Cómo obtengo el tenant_slug?" default-open="false">
+Usa `GET /my/identity` para obtener la lista de cuentas a las que tienes acceso. Cada cuenta incluye su `slug` en la respuesta:
+```json
+{
+  "accounts": [
+    {
+      "slug": "/1",
+      ...
+    }
+  ]
+}
+```
+
+Usa ese slug (sin el slash inicial) en las rutas: `/1/arca/wsfe/status`
 </Expandable>
