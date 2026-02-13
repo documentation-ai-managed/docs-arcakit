@@ -15,7 +15,7 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Documentation",
+        "tab": "Documentacion",
         "icon": "book",
         "groups": [
           {
@@ -23,21 +23,16 @@
             "icon": "rocket",
             "pages": [
               {
-                "title": "Introduction",
-                "path": "introduction",
+                "title": "Introduccion",
+                "path": "introduccion",
                 "icon": "home"
-              },
-              {
-                "title": "Quickstart",
-                "path": "quickstart",
-                "icon": "zap"
               }
             ]
           }
         ]
       },
       {
-        "tab": "API Reference",
+        "tab": "Referencia API",
         "icon": "code",
         "groups": [
           {
