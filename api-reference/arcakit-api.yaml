@@ -213,7 +213,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /{account_slug}/arca/ws_sr_constancia_inscripcion/status:
+  /{tenant_slug}/arca/ws_sr_constancia_inscripcion/status:
     get:
       tags:
         - ARCA - Constancia Inscripción
@@ -245,7 +245,7 @@ paths:
         '503':
           $ref: '#/components/responses/CertificateNotConfigured'
 
-  /{account_slug}/arca/ws_sr_constancia_inscripcion/constancias/{cuit}:
+  /{tenant_slug}/arca/ws_sr_constancia_inscripcion/constancias/{cuit}:
     get:
       tags:
         - ARCA - Constancia Inscripción
@@ -342,7 +342,7 @@ paths:
         '503':
           $ref: '#/components/responses/CertificateNotConfigured'
 
-  /{account_slug}/arca/ws_sr_constancia_inscripcion/constancias/batch:
+  /{tenant_slug}/arca/ws_sr_constancia_inscripcion/constancias/batch:
     post:
       tags:
         - ARCA - Constancia Inscripción
@@ -418,7 +418,7 @@ components:
 
   parameters:
     TenantSlug:
-      name: account_slug
+      name: tenant_slug
       in: path
       required: true
       description: Slug de la cuenta (ej. 0000001 o /0000001)
