@@ -26,9 +26,9 @@ tags:
     description: Información de identidad y cuentas del usuario
   - name: Signup
     description: Creación de nuevas cuentas
-  - name: ARCA - Constancia Inscripción (ws_sr_constancia_inscripcion)
-    description: WS SR Constancia de Inscripción (datos de entidad por CUIT)
-  - name: ARCA - Facturación Electrónica (wsfe)
+  - name: ARCA - ws_sr_constancia_inscripcion (Constancia Inscripción)
+    description: ws_sr_constancia_inscripcion (Datos de entidad por CUIT)
+  - name: ARCA - wsfe (Facturación Electrónica)
     description: Facturación electrónica (tipos, puntos de venta, cotización, CAE/CAEA, comprobantes)
 
 paths:
@@ -218,7 +218,7 @@ paths:
   /{account_slug}/arca/ws_sr_constancia_inscripcion/status:
     get:
       tags:
-        - ARCA - Constancia Inscripción (ws_sr_constancia_inscripcion)
+        - ARCA - ws_sr_constancia_inscripcion (Constancia Inscripción)
       summary: Verificar estado del servicio
       description: Verifica conectividad con el servicio ARCA. Usa certificado de aplicación (global o de cuenta según configuración).
       operationId: arcaConstanciaStatus
@@ -250,7 +250,7 @@ paths:
   /{account_slug}/arca/ws_sr_constancia_inscripcion/constancias/{cuit}:
     get:
       tags:
-        - ARCA - Constancia Inscripción (ws_sr_constancia_inscripcion)
+        - ARCA - ws_sr_constancia_inscripcion (Constancia Inscripción)
       summary: Obtener constancia por CUIT
       description: Obtiene datos de inscripción de una entidad por su CUIT
       operationId: arcaGetConstancia
@@ -347,7 +347,7 @@ paths:
   /{account_slug}/arca/ws_sr_constancia_inscripcion/constancias/batch:
     post:
       tags:
-        - ARCA - Constancia Inscripción (ws_sr_constancia_inscripcion)
+        - ARCA - ws_sr_constancia_inscripcion (Constancia Inscripción)
       summary: Obtener constancias por lote
       description: Obtiene datos de inscripción para múltiples CUITs (1-10 por request)
       operationId: arcaGetConstanciasBatch
@@ -408,7 +408,7 @@ paths:
   # --- ARCA WSFE (Facturación electrónica) ---
   /{account_slug}/arca/wsfe/status:
     get:
-      tags: [ARCA - Facturación Electrónica (wsfe)]
+      tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Estado del servicio WSFE
       description: Verifica conectividad con el servicio ARCA WSFE (FEDummy). Requiere certificado de cuenta.
       operationId: wsfeStatus
@@ -426,7 +426,7 @@ paths:
 
   /{account_slug}/arca/wsfe/tipos/{scope}:
     get:
-      tags: [ARCA - Facturación Electrónica (wsfe)]
+      tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Obtener tipos (catálogos)
       description: |
         Devuelve el catálogo según scope. Valores de scope: comprobantes, documentos, concepto, monedas, opcional, iva, tributos, condicion_iva_receptor.
@@ -455,7 +455,7 @@ paths:
 
   /{account_slug}/arca/wsfe/puntos_venta:
     get:
-      tags: [ARCA - Facturación Electrónica (wsfe)]
+      tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Listar puntos de venta
       description: Puntos de venta del contribuyente (FEParamGetPtosVenta).
       operationId: wsfePuntosVenta
@@ -475,7 +475,7 @@ paths:
 
   /{account_slug}/arca/wsfe/monedas/{moneda_id}/cotizacion:
     get:
-      tags: [ARCA - Facturación Electrónica (wsfe)]
+      tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Cotización de moneda
       description: Cotización (tipo de cambio) para la moneda indicada (FEParamGetCotizacion). Ej. moneda_id DOL para dólar.
       operationId: wsfeCotizacion
@@ -503,7 +503,7 @@ paths:
 
   /{account_slug}/arca/wsfe/config/lote_max:
     get:
-      tags: [ARCA - Facturación Electrónica (wsfe)]
+      tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Cantidad máxima de registros por lote
       description: Cantidad máxima de comprobantes por request de autorización (FECompTotXRequest).
       operationId: wsfeLoteMax
@@ -523,7 +523,7 @@ paths:
 
   /{account_slug}/arca/wsfe/comprobantes/ultimo_autorizado:
     get:
-      tags: [ARCA - Facturación Electrónica (wsfe)]
+      tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Último comprobante autorizado
       description: Último número de comprobante autorizado para el punto de venta y tipo (FECompUltimoAutorizado).
       operationId: wsfeUltimoComprobanteAutorizado
@@ -554,7 +554,7 @@ paths:
 
   /{account_slug}/arca/wsfe/comprobantes/{pto_vta}/{cbte_tipo}/{cbte_nro}:
     get:
-      tags: [ARCA - Facturación Electrónica (wsfe)]
+      tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Consultar comprobante
       description: Obtiene datos de un comprobante por punto de venta, tipo y número (FECompConsultar).
       operationId: wsfeConsultarComprobante
@@ -584,7 +584,7 @@ paths:
 
   /{account_slug}/arca/wsfe/comprobantes:
     post:
-      tags: [ARCA - Facturación Electrónica (wsfe)]
+      tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Autorizar comprobantes (solicitar CAE)
       description: Autoriza uno o más comprobantes (FECAESolicitar). Body con cbte_tipo, pto_vta y array comprobantes. Ver documentación para estructura de cada comprobante.
       operationId: wsfeAutorizarComprobantes
@@ -611,7 +611,7 @@ paths:
 
   /{account_slug}/arca/wsfe/caea:
     get:
-      tags: [ARCA - Facturación Electrónica (wsfe)]
+      tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Consultar CAEA
       description: Obtiene el CAEA para una fecha (FECAEAConsultar). Query fecha=YYYY-MM-DD.
       operationId: wsfeConsultarCaea
@@ -635,7 +635,7 @@ paths:
         '502': { $ref: '#/components/responses/ArcaError' }
         '503': { $ref: '#/components/responses/CertificateNotConfigured' }
     post:
-      tags: [ARCA - Facturación Electrónica (wsfe)]
+      tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Solicitar CAEA
       description: Solicita un CAEA para la próxima quincena (FECAEASolicitar). Body vacío o {}.
       operationId: wsfeSolicitarCaea
@@ -659,7 +659,7 @@ paths:
 
   /{account_slug}/arca/wsfe/caea/informar_comprobantes:
     post:
-      tags: [ARCA - Facturación Electrónica (wsfe)]
+      tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Informar comprobantes CAEA
       description: Informa comprobantes emitidos con un CAEA (FECAEARegInformativo). Body cbte_tipo, pto_vta, comprobantes (array con cbte_nro y caea por ítem).
       operationId: wsfeInformarComprobantesCaea
@@ -686,7 +686,7 @@ paths:
 
   /{account_slug}/arca/wsfe/caea/informar_sin_movimientos:
     post:
-      tags: [ARCA - Facturación Electrónica (wsfe)]
+      tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Informar CAEA sin movimientos
       description: Informa que no se usó el CAEA en el punto de venta (FECAEASinMovimientoInformar). Body caea y pto_vta.
       operationId: wsfeInformarCaeaSinMovimientos
