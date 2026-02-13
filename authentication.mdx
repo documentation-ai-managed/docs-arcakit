@@ -111,11 +111,11 @@ Todas las respuestas son JSON. Envía siempre:
 - `Accept: application/json`
 - `Content-Type: application/json` (para POST/PUT)
 
-### Tenant slug en rutas
+### Account slug en rutas
 
-Los endpoints que requieren una cuenta (especialmente ARCA) usan el slug del tenant en la ruta:
+Los endpoints que requieren una cuenta (especialmente ARCA) usan el slug del account en la ruta:
 ```
-/{tenant_slug}/arca/wsfe/status
+/{account_slug}/arca/wsfe/status
 ```
 
 Ejemplo: `https://app.arcakit.dev/1/arca/wsfe/status`
@@ -239,7 +239,7 @@ El error 502 indica que ARCA/AFIP retornó un error. El mensaje de error en el b
 - Servicios de ARCA temporalmente no disponibles
 </Expandable>
 
-<Expandable title="¿Cómo obtengo el tenant_slug?" default-open="false">
+<Expandable title="¿Cómo obtengo el account_slug?" default-open="false">
 Usa `GET /my/identity` para obtener la lista de cuentas a las que tienes acceso. Cada cuenta incluye su `slug` en la respuesta:
 ```json
 {
