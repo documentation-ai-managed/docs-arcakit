@@ -52,7 +52,8 @@
             ]
           },
           {
-            "group": "Endpoints"
+            "group": "Endpoints",
+            "openapi": "api-reference/arcakit-api.yaml"
           }
         ]
       },
