@@ -5,20 +5,7 @@ info:
   description: |
     API REST para integración con ARCAkit. Autenticación mediante Bearer tokens o magic links.
     
-    **Base URL**: https://app.arcakit.dev
-    
-    ## Autenticación
-    
-    Hay dos formas de autenticarse:
-    1. **Personal access tokens** - Tokens de larga duración (generados en la UI)
-    2. **Magic link authentication** - Autenticación basada en sesión para apps nativas
-    
-    ## Rate Limiting
-    
-    - Signup: 10 requests por hora
-    - Magic link request: limitado por rate limiter
-    - Magic link submit: limitado por rate limiter
-    
+    Para más información, consulta la documentación completa en https://app.arcakit.dev/docs
   contact:
     name: ARCAkit Support
     url: https://app.arcakit.dev
@@ -39,6 +26,8 @@ tags:
     description: Información de identidad y cuentas del usuario
   - name: Signup
     description: Creación de nuevas cuentas
+  - name: ARCA - Constancia Inscripción
+    description: WS SR Constancia de Inscripción (datos de entidad por CUIT)
 
 paths:
   /session:
@@ -46,11 +35,7 @@ paths:
       tags:
         - Authentication
       summary: Solicitar magic link
-      description: |
-        Envía un magic link al email del usuario. El usuario recibirá un código de 6 caracteres.
-        
-        La respuesta incluye un `pending_authentication_token` tanto en el JSON body como en una cookie.
-        Las apps nativas deben guardar este token para usarlo al enviar el código.
+      description: Envía un magic link al email del usuario. El usuario recibirá un código de 6 caracteres. La respuesta incluye un pending_authentication_token tanto en el JSON body como en una cookie.
       operationId: requestMagicLink
       security: []
       requestBody:
@@ -66,7 +51,8 @@ paths:
                   type: string
                   format: email
                   description: Email del usuario
-                  example: user@example.com
+            example:
+              email_address: user@example.com
       responses:
         '201':
           description: Magic link enviado exitosamente
@@ -75,7 +61,6 @@ paths:
               description: Cookie con pending_authentication_token
               schema:
                 type: string
-                example: pending_authentication_token=eyJfcmFpbHMi...; HttpOnly; SameSite=Lax
           content:
             application/json:
               schema:
@@ -84,21 +69,12 @@ paths:
                   pending_authentication_token:
                     type: string
                     description: Token temporal para usar al enviar el código
-                    example: eyJfcmFpbHMi...
-        '422':
-          description: Email inválido
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
               example:
-                error: "Invalid email address"
+                pending_authentication_token: eyJfcmFpbHMi...
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
         '429':
-          description: Rate limit excedido
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/TooManyRequests'
     
     delete:
       tags:
@@ -119,10 +95,7 @@ paths:
       tags:
         - Authentication
       summary: Enviar código del magic link
-      description: |
-        Completa la autenticación enviando el código de 6 caracteres que el usuario recibió por email.
-        
-        Requiere el `pending_authentication_token` como cookie (o se puede enviar en el body).
+      description: Completa la autenticación enviando el código de 6 caracteres que el usuario recibió por email. Requiere el pending_authentication_token como cookie.
       operationId: submitMagicLinkCode
       security: []
       parameters:
@@ -132,7 +105,6 @@ paths:
           description: Cookie con pending_authentication_token de la respuesta anterior
           schema:
             type: string
-          example: pending_authentication_token=eyJfcmFpbHMi...
       requestBody:
         required: true
         content:
@@ -145,8 +117,9 @@ paths:
                 code:
                   type: string
                   description: Código de 6 caracteres del email
-                  example: ABC123
                   pattern: '^[A-Z0-9]{6}$'
+            example:
+              code: ABC123
       responses:
         '200':
           description: Autenticación exitosa
@@ -158,32 +131,19 @@ paths:
                   session_token:
                     type: string
                     description: Token de sesión para usar en requests subsiguientes
-                    example: eyJfcmFpbHMi...
               example:
                 session_token: eyJfcmFpbHMi...
         '401':
-          description: Token o código inválido
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-              example:
-                error: "Invalid code or token"
+          $ref: '#/components/responses/Unauthorized'
         '429':
-          description: Rate limit excedido
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/TooManyRequests'
 
   /my/identity:
     get:
       tags:
         - Identity
       summary: Obtener identidad y cuentas
-      description: |
-        Retorna las cuentas a las que tiene acceso la identidad autenticada, 
-        incluyendo el usuario en cada cuenta.
+      description: Retorna las cuentas a las que tiene acceso la identidad autenticada, incluyendo el usuario en cada cuenta.
       operationId: getMyIdentity
       responses:
         '200':
@@ -198,14 +158,14 @@ paths:
                   - id: 03f5v9zjskhcii2r45ih3u1rq
                     name: Acme Corp
                     slug: /0000001
-                    created_at: "2025-12-05T19:36:35.377Z"
+                    created_at: '2025-12-05T19:36:35.377Z'
                     user:
                       id: 03f5v9zjw7pz8717a4no1h8a7
                       name: Jane Doe
                       role: owner
                       active: true
                       email_address: jane@example.com
-                      created_at: "2025-12-05T19:36:35.401Z"
+                      created_at: '2025-12-05T19:36:35.401Z'
                       url: https://app.arcakit.dev/users/03f5v9zjw7pz8717a4no1h8a7
         '304':
           description: Not Modified (usa ETag para caching)
@@ -217,10 +177,7 @@ paths:
       tags:
         - Signup
       summary: Crear nueva cuenta
-      description: |
-        Completa el signup creando una nueva cuenta para la identidad autenticada.
-        
-        **Rate limit**: 10 requests por hora
+      description: Completa el signup creando una nueva cuenta para la identidad autenticada. Rate limit de 10 requests por hora.
       operationId: createAccount
       requestBody:
         required: true
@@ -235,12 +192,13 @@ paths:
                 full_name:
                   type: string
                   description: Nombre completo del usuario
-                  example: Juan Pérez
                 cuit:
                   type: string
                   description: CUIT de la entidad (con o sin guiones)
-                  example: "20-12345678-9"
                   pattern: '^\d{2}-?\d{8}-?\d{1}$'
+            example:
+              full_name: Juan Pérez
+              cuit: '20-12345678-9'
       responses:
         '201':
           description: Cuenta creada exitosamente
@@ -248,56 +206,225 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/IdentityResponse'
-              example:
-                email_address: user@example.com
-                accounts:
-                  - id: 03f5v9zjskhcii2r45ih3u1rq
-                    name: Acme Corp
-                    slug: /0000001
-                    created_at: "2025-12-05T19:36:35.377Z"
-                    user:
-                      id: 03f5v9zjw7pz8717a4no1h8a7
-                      name: Juan Pérez
-                      role: owner
-                      active: true
-                      email_address: user@example.com
-                      created_at: "2025-12-05T19:36:35.401Z"
-                      url: https://app.arcakit.dev/users/03f5v9zjw7pz8717a4no1h8a7
         '422':
-          description: Validación fallida
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-              example:
-                error: "CUIT inválido"
+          $ref: '#/components/responses/UnprocessableEntity'
         '429':
-          description: Rate limit excedido (10 por hora)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/TooManyRequests'
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  /{account_slug}/arca/ws_sr_constancia_inscripcion/status:
+    get:
+      tags:
+        - ARCA - Constancia Inscripción
+      summary: Verificar estado del servicio
+      description: Verifica conectividad con el servicio ARCA. Usa certificado de aplicación (global o de cuenta según configuración).
+      operationId: arcaConstanciaStatus
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+      responses:
+        '200':
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  appserver:
+                    type: string
+                  authserver:
+                    type: string
+                  dbserver:
+                    type: string
+              example:
+                appserver: OK
+                authserver: OK
+                dbserver: OK
+        '502':
+          $ref: '#/components/responses/ArcaError'
+        '503':
+          $ref: '#/components/responses/CertificateNotConfigured'
+
+  /{account_slug}/arca/ws_sr_constancia_inscripcion/constancias/{cuit}:
+    get:
+      tags:
+        - ARCA - Constancia Inscripción
+      summary: Obtener constancia por CUIT
+      description: Obtiene datos de inscripción de una entidad por su CUIT
+      operationId: arcaGetConstancia
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - name: cuit
+          in: path
+          required: true
+          description: CUIT de la entidad (con o sin guiones)
+          schema:
+            type: string
+            pattern: '^\d{2}-?\d{8}-?\d{1}$'
+          example: '30-12345678-4'
+      responses:
+        '200':
+          description: Datos de la entidad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConstanciaInscripcion'
+              examples:
+                personaJuridica:
+                  summary: Persona jurídica exitosa
+                  value:
+                    datos_generales:
+                      razon_social: LA REGALERIA S A
+                      id_persona: '30123456784'
+                      tipo_persona: JURIDICA
+                      tipo_clave: CUIT
+                      estado_clave: ACTIVO
+                      mes_cierre: '6'
+                      fecha_contrato_social: '1996-07-31T12:00:00-03:00'
+                      domicilio_fiscal:
+                        direccion: AV SIEMPRE VIVA 123
+                        localidad: NUEVA YORK
+                        cod_postal: '2300'
+                        id_provincia: '12'
+                        descripcion_provincia: SANTA FE
+                        tipo_domicilio: FISCAL
+                    datos_regimen_general:
+                      actividad:
+                        - descripcion_actividad: VENTA AL POR MENOR DE INSTRUMENTAL MÉDICO Y ODONTOLÓGICO Y ARTÍCULOS ORTOPÉDICOS
+                          id_actividad: '477330'
+                          nomenclador: '883'
+                          orden: '2'
+                          periodo: '201311'
+                      impuesto:
+                        - descripcion_impuesto: GANANCIAS SOCIEDADES
+                          id_impuesto: '10'
+                          periodo: '199907'
+                        - descripcion_impuesto: IVA
+                          id_impuesto: '30'
+                          periodo: '198903'
+                      regimen:
+                        - id_impuesto: '208'
+                          id_regimen: '159'
+                          periodo: '199403'
+                    metadata:
+                      fecha_hora: '2018-12-18T13:28:41.714-03:00'
+                      servidor: aws.afip.gov.ar
+                personaFisica:
+                  summary: Persona física con error de régimen
+                  value:
+                    datos_generales:
+                      apellido: ROMA
+                      nombre: LUIS GARMENDIA
+                      id_persona: '20123456782'
+                      tipo_persona: FISICA
+                      tipo_clave: CUIT
+                      estado_clave: ACTIVO
+                      mes_cierre: '12'
+                      domicilio_fiscal:
+                        direccion: ROSAS 456
+                        localidad: USHUAIA
+                        cod_postal: '9410'
+                        dato_adicional: NO DETERMINADO
+                        tipo_dato_adicional: NO DETERMINADO
+                        id_provincia: '24'
+                        descripcion_provincia: TIERRA DEL FUEGO
+                        tipo_domicilio: FISCAL
+                    error_regimen_general:
+                      error: El contribuyente cuenta con impuestos con baja de oficio por Decreto 1299/98
+                      mensaje: No cumple con las condiciones para enviar datos del regimen general
+                    metadata:
+                      fecha_hora: '2019-01-03T15:41:42.636-03:00'
+                      servidor: aws.afip.gov.ar
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '502':
+          $ref: '#/components/responses/ArcaError'
+        '503':
+          $ref: '#/components/responses/CertificateNotConfigured'
+
+  /{account_slug}/arca/ws_sr_constancia_inscripcion/constancias/batch:
+    post:
+      tags:
+        - ARCA - Constancia Inscripción
+      summary: Obtener constancias por lote
+      description: Obtiene datos de inscripción para múltiples CUITs (1-10 por request)
+      operationId: arcaGetConstanciasBatch
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cuits
+              properties:
+                cuits:
+                  type: array
+                  items:
+                    type: string
+                    pattern: '^\d{2}-?\d{8}-?\d{1}$'
+                  minItems: 1
+                  maxItems: 10
+                  description: Array de CUITs (1-10)
+            example:
+              cuits:
+                - '30-12345678-4'
+                - '20-12345678-2'
+      responses:
+        '200':
+          description: Array de resultados (éxito o error por cada CUIT)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConstanciaInscripcion'
+        '422':
+          description: Validación fallida (CUITs inválidos o cantidad fuera de rango)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  cuits:
+                    type: array
+                    items:
+                      type: string
+              example:
+                error: Invalid CUIT format
+                cuits:
+                  - '12-34567890-1'
+        '502':
+          $ref: '#/components/responses/ArcaError'
+        '503':
+          $ref: '#/components/responses/CertificateNotConfigured'
 
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
-      description: |
-        Token de acceso personal generado en My → Access tokens.
-        
-        Incluir en el header: `Authorization: Bearer <token>`
+      description: Token de acceso personal generado en My → Access tokens. Incluir en el header Authorization Bearer <token>
     
     SessionToken:
       type: apiKey
       in: cookie
       name: session_token
-      description: |
-        Token de sesión obtenido vía magic link authentication.
-        
-        Se envía automáticamente como cookie después del login.
+      description: Token de sesión obtenido vía magic link authentication. Se envía automáticamente como cookie después del login.
+
+  parameters:
+    TenantSlug:
+      name: account_slug
+      in: path
+      required: true
+      description: Slug de la cuenta (ej. 0000001 o /0000001)
+      schema:
+        type: string
+      example: '0000001'
 
   responses:
     Unauthorized:
@@ -307,34 +434,52 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
           example:
-            error: "Unauthorized"
+            error: Unauthorized
     
-    Forbidden:
-      description: Sin permiso para realizar esta acción
+    UnprocessableEntity:
+      description: Validación fallida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    TooManyRequests:
+      description: Rate limit excedido
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
           example:
-            error: "Forbidden"
+            error: Too many requests
     
-    NotFound:
-      description: Recurso no encontrado o sin acceso
+    ArcaError:
+      description: Error de ARCA o upstream
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
           example:
-            error: "Not found"
+            error: No existe persona con ese Id
     
-    BadRequest:
-      description: Request malformado o parámetros faltantes
+    CertificateNotConfigured:
+      description: Certificado no configurado (global, de cuenta, o catálogo según endpoint)
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            error: "Bad request"
+          examples:
+            appCert:
+              summary: Certificado de aplicación no configurado
+              value:
+                error: App certificate not configured
+            accountCert:
+              summary: Certificado de cuenta no configurado
+              value:
+                error: Account certificate not configured
+            catalogCert:
+              summary: Certificado de catálogo no configurado
+              value:
+                error: Certificate not configured
 
   schemas:
     Error:
@@ -343,68 +488,43 @@ components:
         error:
           type: string
           description: Mensaje de error
-      description: |
-        Formato estándar de error. Algunos 422 pueden incluir campos adicionales
-        con detalles de validación (ej: `cuits` con lista de CUITs inválidos).
-      example:
-        error: "Invalid request"
+      description: Formato estándar de error. Algunos 422 pueden incluir campos adicionales con detalles de validación.
 
     User:
       type: object
       properties:
         id:
           type: string
-          description: ID único del usuario
-          example: 03f5v9zjw7pz8717a4no1h8a7
         name:
           type: string
-          description: Nombre completo del usuario
-          example: Jane Doe
         role:
           type: string
           enum: [owner, admin, member, system]
-          description: Rol del usuario en la cuenta
-          example: owner
         active:
           type: boolean
-          description: Si el usuario está activo
-          example: true
         email_address:
           type: string
           format: email
-          description: Email del usuario
-          example: jane@example.com
         created_at:
           type: string
           format: date-time
-          description: Fecha de creación (ISO 8601)
-          example: "2025-12-05T19:36:35.401Z"
         url:
           type: string
           format: uri
-          description: URL del usuario
-          example: https://app.arcakit.dev/users/03f5v9zjw7pz8717a4no1h8a7
 
     Account:
       type: object
       properties:
         id:
           type: string
-          description: ID único de la cuenta
-          example: 03f5v9zjskhcii2r45ih3u1rq
         name:
           type: string
-          description: Nombre de la cuenta
-          example: Acme Corp
         slug:
           type: string
           description: Slug para URLs (incluye el slash inicial)
-          example: /0000001
         created_at:
           type: string
           format: date-time
-          description: Fecha de creación (ISO 8601)
-          example: "2025-12-05T19:36:35.377Z"
 
     AccountWithUser:
       allOf:
@@ -423,10 +543,89 @@ components:
         email_address:
           type: string
           format: email
-          description: Email de la identidad
-          example: user@example.com
         accounts:
           type: array
-          description: Cuentas a las que tiene acceso la identidad
           items:
             $ref: '#/components/schemas/AccountWithUser'
+
+    ConstanciaInscripcion:
+      type: object
+      properties:
+        datos_generales:
+          type: object
+          properties:
+            razon_social:
+              type: string
+              description: Para personas jurídicas
+            apellido:
+              type: string
+              description: Para personas físicas
+            nombre:
+              type: string
+              description: Para personas físicas
+            id_persona:
+              type: string
+            tipo_persona:
+              type: string
+              enum: [FISICA, JURIDICA]
+            tipo_clave:
+              type: string
+            estado_clave:
+              type: string
+            mes_cierre:
+              type: string
+            fecha_contrato_social:
+              type: string
+              format: date-time
+              description: Para personas jurídicas
+            domicilio_fiscal:
+              type: object
+              properties:
+                direccion:
+                  type: string
+                localidad:
+                  type: string
+                cod_postal:
+                  type: string
+                id_provincia:
+                  type: string
+                descripcion_provincia:
+                  type: string
+                tipo_domicilio:
+                  type: string
+                dato_adicional:
+                  type: string
+                tipo_dato_adicional:
+                  type: string
+        datos_regimen_general:
+          type: object
+          description: Presente cuando la entidad cumple condiciones
+          properties:
+            actividad:
+              type: array
+              items:
+                type: object
+            impuesto:
+              type: array
+              items:
+                type: object
+            regimen:
+              type: array
+              items:
+                type: object
+        error_regimen_general:
+          type: object
+          description: Presente cuando hay error en régimen general
+          properties:
+            error:
+              type: string
+            mensaje:
+              type: string
+        metadata:
+          type: object
+          properties:
+            fecha_hora:
+              type: string
+              format: date-time
+            servidor:
+              type: string
