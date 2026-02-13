@@ -19,7 +19,7 @@
         "icon": "book",
         "groups": [
           {
-            "group": "Start Here",
+            "group": "Empezá acá",
             "icon": "rocket",
             "pages": [
               {
@@ -31,11 +31,6 @@
                 "title": "Quickstart",
                 "path": "quickstart",
                 "icon": "zap"
-              },
-              {
-                "title": "Components",
-                "path": "components",
-                "icon": "code"
               }
             ]
           },
