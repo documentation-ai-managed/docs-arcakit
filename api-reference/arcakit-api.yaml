@@ -1,0 +1,432 @@
+openapi: 3.0.0
+info:
+  version: 1.0.0
+  title: ARCAkit API
+  description: |
+    API REST para integración con ARCAkit. Autenticación mediante Bearer tokens o magic links.
+    
+    **Base URL**: https://app.arcakit.dev
+    
+    ## Autenticación
+    
+    Hay dos formas de autenticarse:
+    1. **Personal access tokens** - Tokens de larga duración (generados en la UI)
+    2. **Magic link authentication** - Autenticación basada en sesión para apps nativas
+    
+    ## Rate Limiting
+    
+    - Signup: 10 requests por hora
+    - Magic link request: limitado por rate limiter
+    - Magic link submit: limitado por rate limiter
+    
+  contact:
+    name: ARCAkit Support
+    url: https://app.arcakit.dev
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://app.arcakit.dev
+    description: Production
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Authentication
+    description: Magic link authentication para apps nativas
+  - name: Identity
+    description: Información de identidad y cuentas del usuario
+  - name: Signup
+    description: Creación de nuevas cuentas
+
+paths:
+  /session:
+    post:
+      tags:
+        - Authentication
+      summary: Solicitar magic link
+      description: |
+        Envía un magic link al email del usuario. El usuario recibirá un código de 6 caracteres.
+        
+        La respuesta incluye un `pending_authentication_token` tanto en el JSON body como en una cookie.
+        Las apps nativas deben guardar este token para usarlo al enviar el código.
+      operationId: requestMagicLink
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email_address
+              properties:
+                email_address:
+                  type: string
+                  format: email
+                  description: Email del usuario
+                  example: user@example.com
+      responses:
+        '201':
+          description: Magic link enviado exitosamente
+          headers:
+            Set-Cookie:
+              description: Cookie con pending_authentication_token
+              schema:
+                type: string
+                example: pending_authentication_token=eyJfcmFpbHMi...; HttpOnly; SameSite=Lax
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pending_authentication_token:
+                    type: string
+                    description: Token temporal para usar al enviar el código
+                    example: eyJfcmFpbHMi...
+        '422':
+          description: Email inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Invalid email address"
+        '429':
+          description: Rate limit excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      tags:
+        - Authentication
+      summary: Cerrar sesión (logout)
+      description: Destruye la sesión del servidor
+      operationId: logout
+      security:
+        - SessionToken: []
+      responses:
+        '204':
+          description: Sesión cerrada exitosamente
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /session/magic_link:
+    post:
+      tags:
+        - Authentication
+      summary: Enviar código del magic link
+      description: |
+        Completa la autenticación enviando el código de 6 caracteres que el usuario recibió por email.
+        
+        Requiere el `pending_authentication_token` como cookie (o se puede enviar en el body).
+      operationId: submitMagicLinkCode
+      security: []
+      parameters:
+        - name: Cookie
+          in: header
+          required: true
+          description: Cookie con pending_authentication_token de la respuesta anterior
+          schema:
+            type: string
+          example: pending_authentication_token=eyJfcmFpbHMi...
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  description: Código de 6 caracteres del email
+                  example: ABC123
+                  pattern: '^[A-Z0-9]{6}$'
+      responses:
+        '200':
+          description: Autenticación exitosa
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_token:
+                    type: string
+                    description: Token de sesión para usar en requests subsiguientes
+                    example: eyJfcmFpbHMi...
+              example:
+                session_token: eyJfcmFpbHMi...
+        '401':
+          description: Token o código inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Invalid code or token"
+        '429':
+          description: Rate limit excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /my/identity:
+    get:
+      tags:
+        - Identity
+      summary: Obtener identidad y cuentas
+      description: |
+        Retorna las cuentas a las que tiene acceso la identidad autenticada, 
+        incluyendo el usuario en cada cuenta.
+      operationId: getMyIdentity
+      responses:
+        '200':
+          description: Identidad con cuentas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityResponse'
+              example:
+                email_address: user@example.com
+                accounts:
+                  - id: 03f5v9zjskhcii2r45ih3u1rq
+                    name: Acme Corp
+                    slug: /0000001
+                    created_at: "2025-12-05T19:36:35.377Z"
+                    user:
+                      id: 03f5v9zjw7pz8717a4no1h8a7
+                      name: Jane Doe
+                      role: owner
+                      active: true
+                      email_address: jane@example.com
+                      created_at: "2025-12-05T19:36:35.401Z"
+                      url: https://app.arcakit.dev/users/03f5v9zjw7pz8717a4no1h8a7
+        '304':
+          description: Not Modified (usa ETag para caching)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /signup/completion:
+    post:
+      tags:
+        - Signup
+      summary: Crear nueva cuenta
+      description: |
+        Completa el signup creando una nueva cuenta para la identidad autenticada.
+        
+        **Rate limit**: 10 requests por hora
+      operationId: createAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - full_name
+                - cuit
+              properties:
+                full_name:
+                  type: string
+                  description: Nombre completo del usuario
+                  example: Juan Pérez
+                cuit:
+                  type: string
+                  description: CUIT de la entidad (con o sin guiones)
+                  example: "20-12345678-9"
+                  pattern: '^\d{2}-?\d{8}-?\d{1}$'
+      responses:
+        '201':
+          description: Cuenta creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityResponse'
+              example:
+                email_address: user@example.com
+                accounts:
+                  - id: 03f5v9zjskhcii2r45ih3u1rq
+                    name: Acme Corp
+                    slug: /0000001
+                    created_at: "2025-12-05T19:36:35.377Z"
+                    user:
+                      id: 03f5v9zjw7pz8717a4no1h8a7
+                      name: Juan Pérez
+                      role: owner
+                      active: true
+                      email_address: user@example.com
+                      created_at: "2025-12-05T19:36:35.401Z"
+                      url: https://app.arcakit.dev/users/03f5v9zjw7pz8717a4no1h8a7
+        '422':
+          description: Validación fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "CUIT inválido"
+        '429':
+          description: Rate limit excedido (10 por hora)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Token de acceso personal generado en My → Access tokens.
+        
+        Incluir en el header: `Authorization: Bearer <token>`
+    
+    SessionToken:
+      type: apiKey
+      in: cookie
+      name: session_token
+      description: |
+        Token de sesión obtenido vía magic link authentication.
+        
+        Se envía automáticamente como cookie después del login.
+
+  responses:
+    Unauthorized:
+      description: No autorizado - token inválido o faltante
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Unauthorized"
+    
+    Forbidden:
+      description: Sin permiso para realizar esta acción
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Forbidden"
+    
+    NotFound:
+      description: Recurso no encontrado o sin acceso
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Not found"
+    
+    BadRequest:
+      description: Request malformado o parámetros faltantes
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Bad request"
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Mensaje de error
+      description: |
+        Formato estándar de error. Algunos 422 pueden incluir campos adicionales
+        con detalles de validación (ej: `cuits` con lista de CUITs inválidos).
+      example:
+        error: "Invalid request"
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID único del usuario
+          example: 03f5v9zjw7pz8717a4no1h8a7
+        name:
+          type: string
+          description: Nombre completo del usuario
+          example: Jane Doe
+        role:
+          type: string
+          enum: [owner, admin, member, system]
+          description: Rol del usuario en la cuenta
+          example: owner
+        active:
+          type: boolean
+          description: Si el usuario está activo
+          example: true
+        email_address:
+          type: string
+          format: email
+          description: Email del usuario
+          example: jane@example.com
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación (ISO 8601)
+          example: "2025-12-05T19:36:35.401Z"
+        url:
+          type: string
+          format: uri
+          description: URL del usuario
+          example: https://app.arcakit.dev/users/03f5v9zjw7pz8717a4no1h8a7
+
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID único de la cuenta
+          example: 03f5v9zjskhcii2r45ih3u1rq
+        name:
+          type: string
+          description: Nombre de la cuenta
+          example: Acme Corp
+        slug:
+          type: string
+          description: Slug para URLs (incluye el slash inicial)
+          example: /0000001
+        created_at:
+          type: string
+          format: date-time
+          description: Fecha de creación (ISO 8601)
+          example: "2025-12-05T19:36:35.377Z"
+
+    AccountWithUser:
+      allOf:
+        - $ref: '#/components/schemas/Account'
+        - type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+
+    IdentityResponse:
+      type: object
+      required:
+        - email_address
+        - accounts
+      properties:
+        email_address:
+          type: string
+          format: email
+          description: Email de la identidad
+          example: user@example.com
+        accounts:
+          type: array
+          description: Cuentas a las que tiene acceso la identidad
+          items:
+            $ref: '#/components/schemas/AccountWithUser'
