@@ -2,10 +2,14 @@
   "name": "Starter Kit",
   "colors": {
     "light": {
-      "brand": "#F97316"
+      "brand": "#038932",
+      "heading": "#1a1a1a",
+      "text": "#374151"
     },
     "dark": {
-      "brand": "#FDBA74"
+      "brand": "#FDBA74",
+      "heading": "#f2f2f2",
+      "text": "#c1c1c1"
     }
   },
   "navigation": {
@@ -150,5 +154,8 @@
         ]
       }
     ]
-  }
+  },
+  "logo-dark": "https://blob-cdn.documentation.ai/org-171f7439-d320-448a-b5c6-193691c688b0/doc-3c3033cf-683c-4721-bdb8-f0f6a8a79f9b/1770997276482-65l6bzo2d6d-ARCAkit.ARCAkit?q=85&fm=auto&auto=compress%2Cformat",
+  "logo-light": "https://blob-cdn.documentation.ai/org-171f7439-d320-448a-b5c6-193691c688b0/doc-3c3033cf-683c-4721-bdb8-f0f6a8a79f9b/1770997276482-65l6bzo2d6d-ARCAkit.ARCAkit?q=85&fm=auto&auto=compress%2Cformat",
+  "favicon": "https://blob-cdn.documentation.ai/org-171f7439-d320-448a-b5c6-193691c688b0/doc-3c3033cf-683c-4721-bdb8-f0f6a8a79f9b/1770997276482-65l6bzo2d6d-ARCAkit.ARCAkit?q=85&fm=auto&auto=compress%2Cformat"
 }
