@@ -10,7 +10,7 @@ info:
     name: ARCAkit Support
     url: https://app.arcakit.dev
   license:
-    name: Proprietary
+    name: RAMBAM
 
 servers:
   - url: https://app.arcakit.dev
@@ -26,8 +26,10 @@ tags:
     description: Información de identidad y cuentas del usuario
   - name: Signup
     description: Creación de nuevas cuentas
-  - name: ARCA - Constancia Inscripción
+  - name: ARCA - Constancia Inscripción (ws_sr_constancia_inscripcion)
     description: WS SR Constancia de Inscripción (datos de entidad por CUIT)
+  - name: ARCA - Facturación Electrónica (wsfe)
+    description: Facturación electrónica (tipos, puntos de venta, cotización, CAE/CAEA, comprobantes)
 
 paths:
   /session:
@@ -216,7 +218,7 @@ paths:
   /{account_slug}/arca/ws_sr_constancia_inscripcion/status:
     get:
       tags:
-        - ARCA - Constancia Inscripción
+        - ARCA - Constancia Inscripción (ws_sr_constancia_inscripcion)
       summary: Verificar estado del servicio
       description: Verifica conectividad con el servicio ARCA. Usa certificado de aplicación (global o de cuenta según configuración).
       operationId: arcaConstanciaStatus
@@ -248,7 +250,7 @@ paths:
   /{account_slug}/arca/ws_sr_constancia_inscripcion/constancias/{cuit}:
     get:
       tags:
-        - ARCA - Constancia Inscripción
+        - ARCA - Constancia Inscripción (ws_sr_constancia_inscripcion)
       summary: Obtener constancia por CUIT
       description: Obtiene datos de inscripción de una entidad por su CUIT
       operationId: arcaGetConstancia
@@ -345,7 +347,7 @@ paths:
   /{account_slug}/arca/ws_sr_constancia_inscripcion/constancias/batch:
     post:
       tags:
-        - ARCA - Constancia Inscripción
+        - ARCA - Constancia Inscripción (ws_sr_constancia_inscripcion)
       summary: Obtener constancias por lote
       description: Obtiene datos de inscripción para múltiples CUITs (1-10 por request)
       operationId: arcaGetConstanciasBatch
@@ -403,6 +405,319 @@ paths:
         '503':
           $ref: '#/components/responses/CertificateNotConfigured'
 
+  # --- ARCA WSFE (Facturación electrónica) ---
+  /{account_slug}/arca/wsfe/status:
+    get:
+      tags: [ARCA - Facturación Electrónica (wsfe)]
+      summary: Estado del servicio WSFE
+      description: Verifica conectividad con el servicio ARCA WSFE (FEDummy). Requiere certificado de cuenta.
+      operationId: wsfeStatus
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      responses:
+        '200':
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfeStatusResponse'
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfe/tipos/{scope}:
+    get:
+      tags: [ARCA - Facturación Electrónica (wsfe)]
+      summary: Obtener tipos (catálogos)
+      description: |
+        Devuelve el catálogo según scope. Valores de scope: comprobantes, documentos, concepto, monedas, opcional, iva, tributos, condicion_iva_receptor.
+        Corresponde a FEParamGetTiposCbte, FEParamGetTiposDoc, FEParamGetTiposConcepto, FEParamGetTiposMonedas, FEParamGetTiposOpcional, FEParamGetTiposIva, FEParamGetTiposTributos, FEParamGetTiposIva (condición).
+      operationId: wsfeTipos
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: scope
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [comprobantes, documentos, concepto, monedas, opcional, iva, tributos, condicion_iva_receptor]
+      responses:
+        '200':
+          description: Array de ítems (id, desc, fch_desde, fch_hasta; condicion_iva_receptor tiene cmp_clase en lugar de fch_*)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WsfeTipoItem'
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfe/puntos_venta:
+    get:
+      tags: [ARCA - Facturación Electrónica (wsfe)]
+      summary: Listar puntos de venta
+      description: Puntos de venta del contribuyente (FEParamGetPtosVenta).
+      operationId: wsfePuntosVenta
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WsfePuntoVenta'
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfe/monedas/{moneda_id}/cotizacion:
+    get:
+      tags: [ARCA - Facturación Electrónica (wsfe)]
+      summary: Cotización de moneda
+      description: Cotización (tipo de cambio) para la moneda indicada (FEParamGetCotizacion). Ej. moneda_id DOL para dólar.
+      operationId: wsfeCotizacion
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: moneda_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: DOL
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  moneda_id: { type: string }
+                  cotizacion: { type: number }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfe/config/lote_max:
+    get:
+      tags: [ARCA - Facturación Electrónica (wsfe)]
+      summary: Cantidad máxima de registros por lote
+      description: Cantidad máxima de comprobantes por request de autorización (FECompTotXRequest).
+      operationId: wsfeLoteMax
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cant_max_registros_x_lote: { type: integer }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfe/comprobantes/ultimo_autorizado:
+    get:
+      tags: [ARCA - Facturación Electrónica (wsfe)]
+      summary: Último comprobante autorizado
+      description: Último número de comprobante autorizado para el punto de venta y tipo (FECompUltimoAutorizado).
+      operationId: wsfeUltimoComprobanteAutorizado
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: pto_vta
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: cbte_tipo
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pto_vta: { type: integer }
+                  cbte_tipo: { type: integer }
+                  cbte_nro: { type: integer }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfe/comprobantes/{pto_vta}/{cbte_tipo}/{cbte_nro}:
+    get:
+      tags: [ARCA - Facturación Electrónica (wsfe)]
+      summary: Consultar comprobante
+      description: Obtiene datos de un comprobante por punto de venta, tipo y número (FECompConsultar).
+      operationId: wsfeConsultarComprobante
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: pto_vta
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: cbte_tipo
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: cbte_nro
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Datos del comprobante (estructura según ARCA)
+          content:
+            application/json:
+              schema: {}
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfe/comprobantes:
+    post:
+      tags: [ARCA - Facturación Electrónica (wsfe)]
+      summary: Autorizar comprobantes (solicitar CAE)
+      description: Autoriza uno o más comprobantes (FECAESolicitar). Body con cbte_tipo, pto_vta y array comprobantes. Ver documentación para estructura de cada comprobante.
+      operationId: wsfeAutorizarComprobantes
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WsfeAutorizarComprobantesRequest'
+      responses:
+        '200':
+          description: Array de resultados por comprobante (cae, cae_fch_vto, cbte_nro, resultado, observaciones)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WsfeAutorizarComprobanteResponse'
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfe/caea:
+    get:
+      tags: [ARCA - Facturación Electrónica (wsfe)]
+      summary: Consultar CAEA
+      description: Obtiene el CAEA para una fecha (FECAEAConsultar). Query fecha=YYYY-MM-DD.
+      operationId: wsfeConsultarCaea
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: fecha
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Fecha en YYYY-MM-DD
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfeCaeaResponse'
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+    post:
+      tags: [ARCA - Facturación Electrónica (wsfe)]
+      summary: Solicitar CAEA
+      description: Solicita un CAEA para la próxima quincena (FECAEASolicitar). Body vacío o {}.
+      operationId: wsfeSolicitarCaea
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: CAEA otorgado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfeCaeaResponse'
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfe/caea/informar_comprobantes:
+    post:
+      tags: [ARCA - Facturación Electrónica (wsfe)]
+      summary: Informar comprobantes CAEA
+      description: Informa comprobantes emitidos con un CAEA (FECAEARegInformativo). Body cbte_tipo, pto_vta, comprobantes (array con cbte_nro y caea por ítem).
+      operationId: wsfeInformarComprobantesCaea
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WsfeInformarComprobantesCaeaRequest'
+      responses:
+        '200':
+          description: Array por comprobante (cbte_nro, caea, resultado, observaciones)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WsfeInformarCaeaItemResponse'
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfe/caea/informar_sin_movimientos:
+    post:
+      tags: [ARCA - Facturación Electrónica (wsfe)]
+      summary: Informar CAEA sin movimientos
+      description: Informa que no se usó el CAEA en el punto de venta (FECAEASinMovimientoInformar). Body caea y pto_vta.
+      operationId: wsfeInformarCaeaSinMovimientos
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [caea, pto_vta]
+              properties:
+                caea: { type: string }
+                pto_vta: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  caea: { type: string }
+                  fch_proceso: { type: string }
+                  pto_vta: { type: integer }
+                  resultado: { type: string }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
 components:
   securitySchemes:
     BearerAuth:
@@ -421,12 +736,12 @@ components:
       name: account_slug
       in: path
       required: true
-      description: ID numérico de la cuenta en la URL (ej. 1, 2, 3). La ruta es /1, /2, etc.
+      description: "Slug de la cuenta en la URL. Reemplazá por tu account_slug (numérico, ej. 1) o usá 1 como valor por defecto."
       schema:
         type: string
         pattern: '^\d+$'
         default: '1'
-      example: '1'
+      example: 'account_slug'
 
   responses:
     Unauthorized:
@@ -631,3 +946,124 @@ components:
               format: date-time
             servidor:
               type: string
+
+    # WSFE (Facturación electrónica)
+    WsfeStatusResponse:
+      type: object
+      properties:
+        app_server: { type: string }
+        db_server: { type: string }
+        auth_server: { type: string }
+
+    WsfeTipoItem:
+      type: object
+      properties:
+        id: { description: "Id numérico o código (ej. monedas PES, DOL)", oneOf: [ { type: integer }, { type: string } ] }
+        desc: { type: string }
+        fch_desde: { type: string }
+        fch_hasta: { type: string, nullable: true }
+        cmp_clase: { type: string, description: "Solo condicion_iva_receptor" }
+
+    WsfePuntoVenta:
+      type: object
+      properties:
+        nro: { type: integer }
+        emision_tipo: { type: string }
+        bloqueado: { type: boolean }
+        fch_baja: { type: string, nullable: true }
+
+    WsfeAutorizarComprobantesRequest:
+      type: object
+      required: [ cbte_tipo, pto_vta, comprobantes ]
+      properties:
+        cbte_tipo: { type: integer }
+        pto_vta: { type: integer }
+        comprobantes:
+          type: array
+          items: { $ref: '#/components/schemas/WsfeComprobanteDetalle' }
+        periodo_asoc:
+          type: object
+          properties:
+            fch_desde: { type: string }
+            fch_hasta: { type: string }
+
+    WsfeComprobanteDetalle:
+      type: object
+      description: Detalle por comprobante (FECAEDetRequest). Campos mínimos y opcionales según doc.
+      properties:
+        cbte_nro: { type: integer }
+        concepto: { type: integer }
+        doc_tipo: { type: integer }
+        doc_nro: { type: integer }
+        cbte_fch: { type: string }
+        imp_total: { type: number }
+        imp_tot_conc: { type: number }
+        imp_neto: { type: number }
+        imp_op_ex: { type: number }
+        imp_trib: { type: number }
+        imp_iva: { type: number }
+        mon_id: { type: string }
+        mon_cotiz: { type: number }
+        iva: { type: object }
+        tributos: { type: object }
+        fch_serv_desde: { type: string }
+        fch_serv_hasta: { type: string }
+        fch_vto_pago: { type: string }
+        cbtes_asoc: { type: object }
+        opcionales: { type: object }
+        condicion_iva_receptor_id: { type: integer }
+
+    WsfeAutorizarComprobanteResponse:
+      type: object
+      properties:
+        cae: { type: string, nullable: true }
+        cae_fch_vto: { type: string, nullable: true }
+        cbte_nro: { type: integer }
+        resultado: { type: string, enum: [ A, R ] }
+        observaciones:
+          type: array
+          items:
+            type: object
+            properties:
+              code: { type: integer }
+              msg: { type: string }
+
+    WsfeCaeaResponse:
+      type: object
+      properties:
+        caea: { type: string }
+        periodo: { type: string }
+        orden: { type: integer }
+        fch_vig_desde: { type: string }
+        fch_vig_hasta: { type: string }
+        fch_tope_inf: { type: string }
+        fch_proceso: { type: string }
+
+    WsfeInformarComprobantesCaeaRequest:
+      type: object
+      required: [ cbte_tipo, pto_vta, comprobantes ]
+      properties:
+        cbte_tipo: { type: integer }
+        pto_vta: { type: integer }
+        comprobantes:
+          type: array
+          items:
+            type: object
+            required: [ cbte_nro, caea ]
+            properties:
+              cbte_nro: { type: integer }
+              caea: { type: string }
+
+    WsfeInformarCaeaItemResponse:
+      type: object
+      properties:
+        cbte_nro: { type: integer }
+        caea: { type: string }
+        resultado: { type: string, enum: [ A, R ] }
+        observaciones:
+          type: array
+          items:
+            type: object
+            properties:
+              code: { type: integer }
+              msg: { type: string }
