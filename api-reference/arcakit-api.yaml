@@ -5,7 +5,7 @@ info:
   description: |
     API REST para integración con ARCAkit. Autenticación mediante Bearer tokens o magic links.
     
-    Para más información, consulta la documentación completa en https://doc.arcakit.dev/
+    Para más información, consulta la documentación completa en https://docs.arcakit.dev/
   contact:
     name: ARCAkit Support
     url: https://app.arcakit.dev
@@ -482,8 +482,18 @@ paths:
       tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Obtener tipos (catálogos)
       description: |
-        Devuelve el catálogo según scope. Valores de scope: comprobantes, documentos, concepto, monedas, opcional, iva, tributos, condicion_iva_receptor.
-        Corresponde a FEParamGetTiposCbte, FEParamGetTiposDoc, FEParamGetTiposConcepto, FEParamGetTiposMonedas, FEParamGetTiposOpcional, FEParamGetTiposIva, FEParamGetTiposTributos, FEParamGetTiposIva (condición).
+        Devuelve el catálogo ARCA según el scope indicado en la URL.
+
+        | scope | Operación ARCA |
+        |---|---|
+        | `comprobantes` | FEParamGetTiposCbte |
+        | `documentos` | FEParamGetTiposDoc |
+        | `concepto` | FEParamGetTiposConcepto |
+        | `monedas` | FEParamGetTiposMonedas |
+        | `opcional` | FEParamGetTiposOpcional |
+        | `iva` | FEParamGetTiposIva |
+        | `tributos` | FEParamGetTiposTributos |
+        | `condicion_iva_receptor` | FEParamGetTiposIva (condición) — devuelve `cmp_clase` en lugar de `fch_desde`/`fch_hasta` |
       operationId: wsfeTipos
       parameters:
         - $ref: '#/components/parameters/AccountSlug'
@@ -496,7 +506,7 @@ paths:
           example: comprobantes
       responses:
         '200':
-          description: Array de ítems (id, desc, fch_desde, fch_hasta; condicion_iva_receptor tiene cmp_clase en lugar de fch_*)
+          description: Array de ítems del catálogo
           content:
             application/json:
               schema:
