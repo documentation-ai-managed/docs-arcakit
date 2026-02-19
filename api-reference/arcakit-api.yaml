@@ -5,7 +5,7 @@ info:
   description: |
     API REST para integración con ARCAkit. Autenticación mediante Bearer tokens o magic links.
     
-    Para más información, consulta la documentación completa en https://app.arcakit.dev/docs
+    Para más información, consulta la documentación completa en https://doc.arcakit.dev/
   contact:
     name: ARCAkit Support
     url: https://app.arcakit.dev
