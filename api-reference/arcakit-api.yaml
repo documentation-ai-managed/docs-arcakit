@@ -161,7 +161,7 @@ paths:
                 accounts:
                   - id: 03f5v9zjskhcii2r45ih3u1rq
                     name: Acme Corp
-                    slug: /0000001
+                    slug: /1
                     created_at: '2025-12-05T19:36:35.377Z'
                     user:
                       id: 03f5v9zjw7pz8717a4no1h8a7
@@ -838,6 +838,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WsfeCaeaResponse'
+              example:
+                caea: '21043476341977'
+                periodo: '201102'
+                orden: 1
+                fch_vig_desde: '20110201'
+                fch_vig_hasta: '20110215'
+                fch_tope_inf: '20110317'
+                fch_proceso: '20110127124928'
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '502': { $ref: '#/components/responses/ArcaError' }
         '503': { $ref: '#/components/responses/CertificateNotConfigured' }
@@ -855,6 +863,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WsfeCaeaResponse'
+              example:
+                caea: '21043476341977'
+                periodo: '201102'
+                orden: 1
+                fch_vig_desde: '20110201'
+                fch_vig_hasta: '20110215'
+                fch_tope_inf: '20110317'
+                fch_proceso: '20110127124928'
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '502': { $ref: '#/components/responses/ArcaError' }
         '503': { $ref: '#/components/responses/CertificateNotConfigured' }
@@ -863,7 +879,7 @@ paths:
     post:
       tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Informar comprobantes CAEA
-      description: Informa comprobantes emitidos con un CAEA (FECAEARegInformativo). Body cbte_tipo, pto_vta, comprobantes (array con cbte_nro y caea por ítem).
+      description: Informa comprobantes emitidos con un CAEA (FECAEARegInformativo). Body cbte_tipo, pto_vta y array comprobantes con estructura completa de cada comprobante.
       operationId: wsfeInformarComprobantesCaea
       parameters:
         - $ref: '#/components/parameters/AccountSlug'
@@ -873,15 +889,52 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/WsfeInformarComprobantesCaeaRequest'
+            example:
+              cbte_tipo: 1
+              pto_vta: 3
+              comprobantes:
+                - cbte_nro: 1
+                  concepto: 1
+                  doc_tipo: 80
+                  doc_nro: 30521189203
+                  cbte_fch: '2011-02-01'
+                  imp_total: 1270.48
+                  imp_tot_conc: 0
+                  imp_neto: 1049.98
+                  imp_op_ex: 0
+                  imp_trib: 0
+                  imp_iva: 220.5
+                  mon_id: PES
+                  mon_cotiz: 1
+                  iva:
+                    alic_iva:
+                      - id: 5
+                        base_imp: 1049.98
+                        importe: 220.5
       responses:
         '200':
-          description: Array por comprobante (cbte_nro, caea, resultado, observaciones)
+          description: Array por comprobante (resultado, caea, observaciones)
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/WsfeInformarCaeaItemResponse'
+              example:
+                - cbte_desde: 1
+                  cbte_hasta: 1
+                  cbte_fch: '20110201'
+                  resultado: A
+                  caea: '21043476341977'
+                  observaciones: []
+                - cbte_desde: 2
+                  cbte_hasta: 2
+                  cbte_fch: '20110201'
+                  resultado: R
+                  caea: '21043476341977'
+                  observaciones:
+                    - code: 724
+                      msg: Msg
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '502': { $ref: '#/components/responses/ArcaError' }
         '503': { $ref: '#/components/responses/CertificateNotConfigured' }
@@ -904,6 +957,9 @@ paths:
               properties:
                 caea: { type: string }
                 pto_vta: { type: integer }
+            example:
+              caea: '21043476341977'
+              pto_vta: 3
       responses:
         '200':
           description: OK
@@ -916,6 +972,11 @@ paths:
                   fch_proceso: { type: string }
                   pto_vta: { type: integer }
                   resultado: { type: string }
+              example:
+                caea: '21043476341977'
+                fch_proceso: '20110202'
+                pto_vta: 3
+                resultado: A
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '502': { $ref: '#/components/responses/ArcaError' }
         '503': { $ref: '#/components/responses/CertificateNotConfigured' }
@@ -1145,6 +1206,14 @@ components:
         url:
           type: string
           format: uri
+      example:
+        id: 03f5v9zjw7pz8717a4no1h8a7
+        name: Jane Doe
+        role: owner
+        active: true
+        email_address: jane@example.com
+        created_at: '2025-12-05T19:36:35.401Z'
+        url: https://app.arcakit.dev/users/03f5v9zjw7pz8717a4no1h8a7
 
     Account:
       type: object
@@ -1159,6 +1228,11 @@ components:
         created_at:
           type: string
           format: date-time
+      example:
+        id: 03f5v9zjskhcii2r45ih3u1rq
+        name: Acme Corp
+        slug: /1
+        created_at: '2025-12-05T19:36:35.377Z'
 
     AccountWithUser:
       allOf:
@@ -1263,6 +1337,36 @@ components:
               format: date-time
             servidor:
               type: string
+      example:
+        datos_generales:
+          razon_social: LA REGALERIA S A
+          id_persona: '30123456784'
+          tipo_persona: JURIDICA
+          tipo_clave: CUIT
+          estado_clave: ACTIVO
+          mes_cierre: '6'
+          fecha_contrato_social: '1996-07-31T12:00:00-03:00'
+          domicilio_fiscal:
+            direccion: AV SIEMPRE VIVA 123
+            localidad: NUEVA YORK
+            cod_postal: '2300'
+            id_provincia: '12'
+            descripcion_provincia: SANTA FE
+            tipo_domicilio: FISCAL
+        datos_regimen_general:
+          actividad:
+            - descripcion_actividad: VENTA AL POR MENOR DE INSTRUMENTAL MÉDICO Y ARTÍCULOS ORTOPÉDICOS
+              id_actividad: '477330'
+              nomenclador: '883'
+              orden: '2'
+              periodo: '201311'
+          impuesto:
+            - descripcion_impuesto: IVA
+              id_impuesto: '30'
+              periodo: '198903'
+        metadata:
+          fecha_hora: '2018-12-18T13:28:41.714-03:00'
+          servidor: aws.afip.gov.ar
 
     # WSFE (Facturación electrónica)
     WsfeStatusResponse:
@@ -1271,6 +1375,10 @@ components:
         app_server: { type: string }
         db_server: { type: string }
         auth_server: { type: string }
+      example:
+        app_server: OK
+        db_server: OK
+        auth_server: OK
 
     WsfeTipoItem:
       type: object
@@ -1280,6 +1388,11 @@ components:
         fch_desde: { type: string }
         fch_hasta: { type: string, nullable: true }
         cmp_clase: { type: string, description: "Solo condicion_iva_receptor" }
+      example:
+        id: 1
+        desc: Factura A
+        fch_desde: '20100917'
+        fch_hasta: null
 
     WsfePuntoVenta:
       type: object
@@ -1288,6 +1401,11 @@ components:
         emision_tipo: { type: string }
         bloqueado: { type: boolean }
         fch_baja: { type: string, nullable: true }
+      example:
+        nro: 1
+        emision_tipo: CAE
+        bloqueado: false
+        fch_baja: null
 
     WsfeAutorizarComprobantesRequest:
       type: object
@@ -1365,6 +1483,25 @@ components:
                   id: { type: string }
                   valor: { type: string }
         condicion_iva_receptor_id: { type: integer }
+      example:
+        cbte_nro: 1
+        concepto: 1
+        doc_tipo: 80
+        doc_nro: 30521189203
+        cbte_fch: '20110113'
+        imp_total: 1270.48
+        imp_tot_conc: 0
+        imp_neto: 1049.98
+        imp_op_ex: 0
+        imp_trib: 0
+        imp_iva: 220.5
+        mon_id: PES
+        mon_cotiz: 1
+        iva:
+          alic_iva:
+            - id: 5
+              base_imp: 1049.98
+              importe: 220.5
 
     WsfeAutorizarComprobanteResponse:
       type: object
@@ -1385,6 +1522,17 @@ components:
             properties:
               code: { type: integer }
               msg: { type: string }
+      example:
+        concepto: 1
+        doc_tipo: 80
+        doc_nro: 30521189203
+        cbte_desde: 1
+        cbte_hasta: 1
+        cbte_fch: '20110113'
+        resultado: A
+        cae: '61023008595705'
+        cae_fch_vto: '20110123'
+        observaciones: []
 
     WsfeCaeaResponse:
       type: object
@@ -1396,6 +1544,14 @@ components:
         fch_vig_hasta: { type: string }
         fch_tope_inf: { type: string }
         fch_proceso: { type: string }
+      example:
+        caea: '21043476341977'
+        periodo: '201102'
+        orden: 1
+        fch_vig_desde: '20110201'
+        fch_vig_hasta: '20110215'
+        fch_tope_inf: '20110317'
+        fch_proceso: '20110127124928'
 
     WsfeInformarComprobantesCaeaRequest:
       type: object
@@ -1410,7 +1566,9 @@ components:
     WsfeInformarCaeaItemResponse:
       type: object
       properties:
-        cbte_nro: { type: integer }
+        cbte_desde: { type: integer }
+        cbte_hasta: { type: integer }
+        cbte_fch: { type: string }
         caea: { type: string }
         resultado: { type: string, enum: [ A, R ] }
         observaciones:
@@ -1420,6 +1578,13 @@ components:
             properties:
               code: { type: integer }
               msg: { type: string }
+      example:
+        cbte_desde: 1
+        cbte_hasta: 1
+        cbte_fch: '20110201'
+        caea: '21043476341977'
+        resultado: A
+        observaciones: []
 
     WconsDeclaracion:
       type: object
@@ -1432,6 +1597,15 @@ components:
         fecha_estado_declaracion: { type: string, format: date-time }
         codigo_via_transporte: { type: string }
         matricula_medio_transporte: { type: string }
+      example:
+        identificador_declaracion: 19092SIMI000313M
+        cuit_importador_exportador: '23076925089'
+        cuit_despachante: '20180963295'
+        fecha_oficializacion_declaracion: '2019-04-03T12:54:36'
+        codigo_estado_declaracion: SALI
+        fecha_estado_declaracion: '2019-04-06T13:09:53'
+        codigo_via_transporte: '-'
+        matricula_medio_transporte: '-'
 
     WconsDeclaracionEstado:
       type: object
@@ -1448,3 +1622,16 @@ components:
         fecha_vencimiento_embarque: { type: string, format: date-time, nullable: true }
         indicador_precumplido: { type: string }
         indicador_cumplido: { type: string }
+      example:
+        fecha_presentacion: null
+        fecha_autorizacion_retiro: '2019-04-25T18:48:12'
+        fecha_salida: '2019-04-25T18:48:12'
+        fecha_cancelacion: '2019-07-04T02:29:34'
+        fecha_oficializacion_permiso_embarque_original: null
+        fecha_presentacion_permiso_embarque_original: null
+        fecha_precumplido: null
+        fecha_registracion_cumplido: null
+        fecha_libramiento_cumplido: null
+        fecha_vencimiento_embarque: null
+        indicador_precumplido: '-'
+        indicador_cumplido: '-'
