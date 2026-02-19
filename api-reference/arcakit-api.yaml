@@ -1129,7 +1129,7 @@ components:
         type: string
         pattern: '^\d+$'
         default: '1'
-      example: 'account_slug'
+      example: '1'
 
   responses:
     Unauthorized:
