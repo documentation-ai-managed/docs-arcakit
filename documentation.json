@@ -48,10 +48,10 @@
           },
           {
             "group": "Endpoints",
-            "openapi": "api-reference/arcakit-api.yaml",
             "hidden-apis": [
               "GET /{account_slug}/arca/wcons_declaracion/declaraciones"
-            ]
+            ],
+            "openapi": "api-reference/arcakit-api.yaml"
           }
         ]
       },
