@@ -1125,11 +1125,12 @@ components:
       in: path
       required: true
       description: "Slug de la cuenta en la URL. Reemplazá por tu account_slug (numérico, ej. 1) o usá 1 como valor por defecto."
+      example: '1'
       schema:
         type: string
         pattern: '^\d+$'
         default: '1'
-      example: '1'
+        example: '1'
 
   responses:
     Unauthorized:
