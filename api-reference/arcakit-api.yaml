@@ -30,6 +30,8 @@ tags:
     description: ws_sr_constancia_inscripcion (Datos de entidad por CUIT)
   - name: ARCA - wsfe (Facturación Electrónica)
     description: Facturación electrónica (tipos, puntos de venta, cotización, CAE/CAEA, comprobantes)
+  - name: ARCA - wcons_declaracion (Consulta Declaraciones)
+    description: Consulta de declaraciones juradas por identificador o rango de fechas de oficialización
 
 paths:
   /session:
@@ -718,6 +720,121 @@ paths:
         '502': { $ref: '#/components/responses/ArcaError' }
         '503': { $ref: '#/components/responses/CertificateNotConfigured' }
 
+  # --- ARCA wcons_declaracion (Consulta Declaraciones) ---
+  /{account_slug}/arca/wcons_declaracion/status:
+    get:
+      tags: [ARCA - wcons_declaracion (Consulta Declaraciones)]
+      summary: Estado del servicio wcons_declaracion
+      description: Verifica conectividad con el servicio. Requiere certificado de cuenta.
+      operationId: wconsDeclaracionStatus
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      responses:
+        '200':
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfeStatusResponse'
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wcons_declaracion/declaraciones:
+    get:
+      tags: [ARCA - wcons_declaracion (Consulta Declaraciones)]
+      summary: Listar declaraciones
+      description: |
+        Lista declaraciones juradas (detallada_lista_declaraciones). Usar identificador_declaracion OR
+        (fecha_oficializacion_desde + fecha_oficializacion_hasta), no ambos.
+      operationId: wconsDeclaracionIndex
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: identificador_declaracion
+          in: query
+          required: false
+          schema: { type: string }
+          description: Identificador de la declaración. Exclusivo con fecha_oficializacion_desde/hasta.
+          example: 19093SIMI000434X
+        - name: fecha_oficializacion_desde
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+          description: Fecha desde (requerida junto con fecha_oficializacion_hasta si no se usa identificador_declaracion)
+          example: '2019-04-01T00:00:00'
+        - name: fecha_oficializacion_hasta
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+          description: Fecha hasta
+          example: '2019-04-30T23:59:59'
+      responses:
+        '200':
+          description: Array de declaraciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WconsDeclaracion'
+              example:
+                - identificador_declaracion: 19092SIMI000313M
+                  cuit_importador_exportador: '23076925089'
+                  cuit_despachante: '20180963295'
+                  fecha_oficializacion_declaracion: '2019-04-03T12:54:36'
+                  codigo_estado_declaracion: SALI
+                  fecha_estado_declaracion: '2019-04-06T13:09:53'
+                  codigo_via_transporte: '-'
+                  matricula_medio_transporte: '-'
+                - identificador_declaracion: 19092SIMI000314N
+                  cuit_importador_exportador: '23076925089'
+                  cuit_despachante: '20180963295'
+                  fecha_oficializacion_declaracion: '2019-04-03T13:03:07'
+                  codigo_estado_declaracion: CANC
+                  fecha_estado_declaracion: '2019-06-20T02:23:31'
+                  codigo_via_transporte: '-'
+                  matricula_medio_transporte: '-'
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wcons_declaracion/declaraciones/{identificador_declaracion}:
+    get:
+      tags: [ARCA - wcons_declaracion (Consulta Declaraciones)]
+      summary: Estado de una declaración
+      description: Obtiene el estado de una declaración por su identificador (detallada_estado).
+      operationId: wconsDeclaracionShow
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: identificador_declaracion
+          in: path
+          required: true
+          schema: { type: string }
+          description: Identificador de la declaración
+          example: 19093SIMI000434X
+      responses:
+        '200':
+          description: Estado de la declaración
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WconsDeclaracionEstado'
+              example:
+                fecha_presentacion: null
+                fecha_autorizacion_retiro: '2019-04-25T18:48:12'
+                fecha_salida: '2019-04-25T18:48:12'
+                fecha_cancelacion: '2019-07-04T02:29:34'
+                fecha_oficializacion_permiso_embarque_original: null
+                fecha_presentacion_permiso_embarque_original: null
+                fecha_precumplido: null
+                fecha_registracion_cumplido: null
+                fecha_libramiento_cumplido: null
+                fecha_vencimiento_embarque: null
+                indicador_precumplido: '-'
+                indicador_cumplido: '-'
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
 components:
   securitySchemes:
     BearerAuth:
@@ -1067,3 +1184,31 @@ components:
             properties:
               code: { type: integer }
               msg: { type: string }
+
+    WconsDeclaracion:
+      type: object
+      properties:
+        identificador_declaracion: { type: string }
+        cuit_importador_exportador: { type: string }
+        cuit_despachante: { type: string }
+        fecha_oficializacion_declaracion: { type: string, format: date-time }
+        codigo_estado_declaracion: { type: string, description: "Ej: SALI (salida), CANC (cancelada)" }
+        fecha_estado_declaracion: { type: string, format: date-time }
+        codigo_via_transporte: { type: string }
+        matricula_medio_transporte: { type: string }
+
+    WconsDeclaracionEstado:
+      type: object
+      properties:
+        fecha_presentacion: { type: string, format: date-time, nullable: true }
+        fecha_autorizacion_retiro: { type: string, format: date-time, nullable: true }
+        fecha_salida: { type: string, format: date-time, nullable: true }
+        fecha_cancelacion: { type: string, format: date-time, nullable: true }
+        fecha_oficializacion_permiso_embarque_original: { type: string, format: date-time, nullable: true }
+        fecha_presentacion_permiso_embarque_original: { type: string, format: date-time, nullable: true }
+        fecha_precumplido: { type: string, format: date-time, nullable: true }
+        fecha_registracion_cumplido: { type: string, format: date-time, nullable: true }
+        fecha_libramiento_cumplido: { type: string, format: date-time, nullable: true }
+        fecha_vencimiento_embarque: { type: string, format: date-time, nullable: true }
+        indicador_precumplido: { type: string }
+        indicador_cumplido: { type: string }
