@@ -32,6 +32,16 @@ tags:
     description: Facturación electrónica (tipos, puntos de venta, cotización, CAE/CAEA, comprobantes)
   - name: ARCA - wcons_declaracion (Consulta Declaraciones)
     description: Consulta de declaraciones juradas por identificador o rango de fechas de oficialización
+  - name: ARCA - wsfecred (Factura de Crédito Electrónica)
+    description: Factura de Crédito Electrónica MiPyME (FCE) — cuentas corrientes, comprobantes, aceptación/rechazo y catálogos
+  - name: ARCA - wsrgiva (Régimen de Percepción IVA)
+    description: Consulta de constancias de percepción IVA por CUIT (consultarConstanciaPorLote)
+  - name: ARCA - ws_sr_padron_a100 (Padrón A100)
+    description: Catálogos del padrón A100 — jurisdicciones, tipos de empresa y organismos públicos. Usa certificado de catálogo.
+  - name: ARCA - ws_sr_padron_a4 (Padrón A4)
+    description: Consulta de datos de personas físicas y jurídicas por CUIT (getEntities). Usa certificado de catálogo.
+  - name: ARCA - ws_sr_padron_a5 (Padrón A5)
+    description: Consulta de datos de personas por CUIT, orientado a monotributistas — datos_generales + datos_monotributo (getEntities). Usa certificado de catálogo.
 
 paths:
   /session:
@@ -1106,6 +1116,1137 @@ paths:
         '502': { $ref: '#/components/responses/ArcaError' }
         '503': { $ref: '#/components/responses/CertificateNotConfigured' }
 
+  # --- ARCA wsfecred (Factura de Crédito Electrónica) ---
+  /{account_slug}/arca/wsfecred/status:
+    get:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Estado del servicio wsfecred
+      description: Verifica conectividad con el servicio ARCA wsfecred (dummy). Requiere certificado de cuenta.
+      operationId: wsfecredStatus
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      responses:
+        '200':
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfeStatusResponse'
+              example:
+                appserver: OK
+                authserver: OK
+                dbserver: OK
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/tipos/{scope}:
+    get:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Obtener tipos (catálogos)
+      description: |
+        Devuelve el catálogo wsfecred según el scope indicado en la URL.
+
+        | scope | Operación ARCA |
+        |---|---|
+        | `retenciones` | consultarTiposRetenciones |
+        | `motivos_rechazo` | consultarTiposMotivosRechazo |
+        | `formas_cancelacion` | consultarTiposFormasCancelacion |
+        | `ajustes_operacion` | consultarTiposAjustesOperacion |
+      operationId: wsfecredTipos
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: scope
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [retenciones, motivos_rechazo, formas_cancelacion, ajustes_operacion]
+          example: retenciones
+      responses:
+        '200':
+          description: Array de ítems del catálogo
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WsfecredTipoItem'
+              example:
+                - codigo: 1
+                  descripcion: Retención 1
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/monto_obligado_recepcion:
+    get:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Consultar monto obligado de recepción
+      description: Devuelve si el CUIT consultado está obligado a recibir Facturas de Crédito Electrónicas para una fecha de emisión dada (consultarMontoObligadoRecepcion).
+      operationId: wsfecredMontoObligado
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: cuit_consultada
+          in: query
+          required: true
+          schema: { type: string }
+          description: CUIT a consultar
+          example: '30712895994'
+        - name: fecha_emision
+          in: query
+          required: true
+          schema: { type: string, format: date }
+          description: Fecha de emisión en YYYY-MM-DD
+          example: '2021-01-15'
+      responses:
+        '200':
+          description: Resultado de la consulta
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  monto_desde: { type: number, nullable: true }
+                  obligado: { type: boolean }
+              example:
+                monto_desde: 106267.66
+                obligado: true
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/comprobantes:
+    get:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Consultar comprobantes
+      description: Lista comprobantes de crédito electrónicos por rol del CUIT representado (consultarComprobantes). Filtra por emisor o receptor.
+      operationId: wsfecredConsultarComprobantes
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: rol_cuit_representada
+          in: query
+          required: true
+          schema: { type: string, enum: [Emisor, Receptor] }
+          example: Emisor
+        - name: cuit_contraparte
+          in: query
+          required: false
+          schema: { type: string }
+          example: '20131505852'
+        - name: cod_tipo_cmp
+          in: query
+          required: false
+          schema: { type: integer }
+          example: 1
+        - name: estado_cmp
+          in: query
+          required: false
+          schema: { type: string }
+        - name: fecha
+          in: query
+          required: false
+          schema: { type: string, format: date }
+          example: '2021-01-15'
+        - name: cod_cta_cte
+          in: query
+          required: false
+          schema: { type: integer }
+          example: 12345
+        - name: estado_cta_cte
+          in: query
+          required: false
+          schema: { type: string }
+        - name: nro_pagina
+          in: query
+          required: false
+          schema: { type: integer }
+          example: 1
+      responses:
+        '200':
+          description: Lista paginada de comprobantes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comprobantes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WsfecredComprobante'
+                  nro_pagina: { type: integer }
+                  hay_mas: { type: boolean }
+                  observaciones: { type: array, items: { type: object } }
+              example:
+                comprobantes:
+                  - cbte_nro: 1
+                    cod_tipo_cmp: 1
+                nro_pagina: 1
+                hay_mas: false
+                observaciones: []
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/comprobantes/rechazar_nota_dc:
+    post:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Rechazar nota de débito/crédito
+      description: Rechaza una nota de débito o crédito asociada a una Factura de Crédito Electrónica (rechazarNotaDC).
+      operationId: wsfecredRechazarNotaDc
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_comprobante, array_motivos_rechazo]
+              properties:
+                id_comprobante:
+                  $ref: '#/components/schemas/WsfecredIdComprobante'
+                array_motivos_rechazo:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      cod_motivo: { type: integer }
+                      desc_motivo: { type: string }
+                      justificacion: { type: string }
+            example:
+              id_comprobante:
+                cuit_emisor: 30712895994
+                cod_tipo_cmp: 1
+                pto_vta: 1
+                nro_cmp: 1
+              array_motivos_rechazo:
+                - cod_motivo: 1
+                  desc_motivo: Motivo rechazo 1
+                  justificacion: Justificación del rechazo
+      responses:
+        '200':
+          description: Resultado del rechazo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfecredResultado'
+              example:
+                resultado: A
+                id_cta_cte:
+                  cod_cta_cte: 12345
+                observaciones: []
+                errores: []
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/comprobantes/remitos:
+    get:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Obtener remitos de un comprobante
+      description: Devuelve los remitos asociados a un comprobante identificado por cuit_emisor, cod_tipo_cmp, pto_vta y nro_cmp (obtenerRemitos).
+      operationId: wsfecredRemitos
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - $ref: '#/components/parameters/WsfecredIdComprobante'
+      responses:
+        '200':
+          description: Remitos del comprobante
+          content:
+            application/json:
+              schema:
+                type: object
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/comprobantes/historial_estados:
+    get:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Historial de estados de un comprobante
+      description: Devuelve el historial de estados de un comprobante identificado por cuit_emisor, cod_tipo_cmp, pto_vta y nro_cmp (consultarHistorialEstadosComprobante).
+      operationId: wsfecredHistorialEstadosComprobante
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - $ref: '#/components/parameters/WsfecredIdComprobante'
+      responses:
+        '200':
+          description: Historial de estados
+          content:
+            application/json:
+              schema:
+                type: object
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/ctas_ctes/consulta:
+    get:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Consultar cuenta corriente
+      description: Obtiene una cuenta corriente por cod_cta_cte o por id_factura (cuit_emisor + cod_tipo_cmp + pto_vta + nro_cmp) (consultarCtaCte).
+      operationId: wsfecredConsultarCtaCte
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: cod_cta_cte
+          in: query
+          required: false
+          schema: { type: integer }
+          description: Código de cuenta corriente (alternativo a id_factura)
+          example: 12345
+        - $ref: '#/components/parameters/WsfecredIdFacturaQuery'
+      responses:
+        '200':
+          description: Cuenta corriente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cta_cte:
+                    $ref: '#/components/schemas/WsfecredCtaCte'
+                  observaciones: { type: array, items: { type: object } }
+              example:
+                cta_cte:
+                  cod_cta_cte: 12345
+                  estado: Activa
+                observaciones: []
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/ctas_ctes:
+    get:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Listar cuentas corrientes
+      description: Lista cuentas corrientes por rol del CUIT representado (consultarCtasCtes). Filtra por emisor o receptor.
+      operationId: wsfecredConsultarCtasCtes
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: rol_cuit_representada
+          in: query
+          required: true
+          schema: { type: string, enum: [Emisor, Receptor] }
+          example: Emisor
+        - name: cuit_contraparte
+          in: query
+          required: false
+          schema: { type: string }
+          example: '20131505852'
+        - name: fecha
+          in: query
+          required: false
+          schema: { type: string, format: date }
+          example: '2021-01-15'
+        - name: estado_cta_cte
+          in: query
+          required: false
+          schema: { type: string }
+        - name: nro_pagina
+          in: query
+          required: false
+          schema: { type: integer }
+          example: 1
+        - name: opcion_transferencia
+          in: query
+          required: false
+          schema: { type: string, enum: [ADC, SCA] }
+      responses:
+        '200':
+          description: Lista paginada de cuentas corrientes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ctas_ctes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WsfecredInfoCtaCte'
+                  nro_pagina: { type: integer }
+                  hay_mas: { type: boolean }
+                  observaciones: { type: array, items: { type: object } }
+              example:
+                ctas_ctes:
+                  - cod_cta_cte: 12345
+                nro_pagina: 1
+                hay_mas: false
+                observaciones: []
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/ctas_ctes/historial_estados:
+    get:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Historial de estados de una cuenta corriente
+      description: Devuelve el historial de estados de una cuenta corriente por cod_cta_cte o id_factura (consultarHistorialEstadosCtaCte).
+      operationId: wsfecredHistorialEstadosCtaCte
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: cod_cta_cte
+          in: query
+          required: false
+          schema: { type: integer }
+          example: 12345
+        - $ref: '#/components/parameters/WsfecredIdFacturaQuery'
+      responses:
+        '200':
+          description: Historial de estados
+          content:
+            application/json:
+              schema:
+                type: object
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/ctas_ctes/aceptar:
+    post:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Aceptar cuenta corriente
+      description: Acepta una Factura de Crédito Electrónica (aceptarFECred). Requiere id_cta_cte y opciones de aceptación.
+      operationId: wsfecredAceptar
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_cta_cte]
+              properties:
+                id_cta_cte:
+                  $ref: '#/components/schemas/WsfecredIdCtaCte'
+                saldo_aceptado: { type: number }
+                cod_moneda: { type: string }
+                cotizacion_moneda_ult: { type: number }
+                informa_cbu: { type: boolean }
+                cbu_comprador: { type: string }
+                array_confirmar_notas_dc: { type: array, items: { type: object } }
+                array_formas_cancelacion: { type: array, items: { type: object } }
+                array_retenciones: { type: array, items: { type: object } }
+                array_ajustes_operacion: { type: array, items: { type: object } }
+            example:
+              id_cta_cte:
+                cod_cta_cte: 12345
+              saldo_aceptado: 1270.48
+              cod_moneda: PES
+              cotizacion_moneda_ult: 1
+      responses:
+        '200':
+          description: Resultado de la aceptación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfecredResultado'
+              example:
+                resultado: A
+                id_cta_cte:
+                  cod_cta_cte: 12345
+                observaciones: []
+                errores: []
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/ctas_ctes/rechazar:
+    post:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Rechazar cuenta corriente
+      description: Rechaza una Factura de Crédito Electrónica (rechazarFECred).
+      operationId: wsfecredRechazar
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_cta_cte, array_motivos_rechazo]
+              properties:
+                id_cta_cte:
+                  $ref: '#/components/schemas/WsfecredIdCtaCte'
+                array_motivos_rechazo:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      cod_motivo: { type: integer }
+                      desc_motivo: { type: string }
+                      justificacion: { type: string }
+            example:
+              id_cta_cte:
+                cod_cta_cte: 12345
+              array_motivos_rechazo:
+                - cod_motivo: 1
+                  desc_motivo: Motivo rechazo 1
+                  justificacion: Justificación del rechazo
+      responses:
+        '200':
+          description: Resultado del rechazo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfecredResultado'
+              example:
+                resultado: A
+                id_cta_cte:
+                  cod_cta_cte: 12345
+                observaciones: []
+                errores: []
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/ctas_ctes/informar_cancelacion_total:
+    post:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Informar cancelación total
+      description: Informa la cancelación total de una Factura de Crédito Electrónica (informarCancelacionTotalFECred).
+      operationId: wsfecredInformarCancelacionTotal
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_cta_cte, array_formas_cancelacion, importe_cancelacion]
+              properties:
+                id_cta_cte:
+                  $ref: '#/components/schemas/WsfecredIdCtaCte'
+                importe_cancelacion: { type: number }
+                array_formas_cancelacion:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      codigo: { type: integer }
+                      descripcion: { type: string }
+            example:
+              id_cta_cte:
+                cod_cta_cte: 12345
+              importe_cancelacion: 1270.48
+              array_formas_cancelacion:
+                - codigo: 1
+                  descripcion: Forma cancelación 1
+      responses:
+        '200':
+          description: Resultado de la cancelación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfecredResultado'
+              example:
+                resultado: A
+                id_cta_cte:
+                  cod_cta_cte: 12345
+                observaciones: []
+                errores: []
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/ctas_ctes/modificar_opcion_transferencia:
+    post:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Modificar opción de transferencia
+      description: Cambia la opción de transferencia de una cuenta corriente a ADC (Acreedor Directo de Cheques) o SCA (Sistema de Circulación Abierta) (modificarOpcionTransferencia).
+      operationId: wsfecredModificarOpcionTransferencia
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_cta_cte, opcion_transferencia]
+              properties:
+                id_cta_cte:
+                  $ref: '#/components/schemas/WsfecredIdCtaCte'
+                opcion_transferencia:
+                  type: string
+                  enum: [ADC, SCA]
+            example:
+              id_cta_cte:
+                cod_cta_cte: 12345
+              opcion_transferencia: SCA
+      responses:
+        '200':
+          description: Resultado de la modificación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfecredResultado'
+              example:
+                resultado: A
+                id_cta_cte:
+                  cod_cta_cte: 12345
+                observaciones: []
+                errores: []
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/agt_dpto_cltv/cuentas:
+    get:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Cuentas en agente/departamento CLTV
+      description: Lista las cuentas disponibles en el agente/departamento de cobro (consultarCuentasEnAgtDptoCltv).
+      operationId: wsfecredAgtDptoCltvCuentas
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      responses:
+        '200':
+          description: Cuentas disponibles
+          content:
+            application/json:
+              schema:
+                type: object
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/agt_dpto_cltv/facturas:
+    get:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Facturas en agente/departamento CLTV
+      description: Lista las facturas en el agente/departamento de cobro (consultarFacturasAgtDptoCltv). Filtra opcionalmente por cod_cta_cte o id_factura y filtro_fecha.
+      operationId: wsfecredAgtDptoCltvFacturas
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: cod_cta_cte
+          in: query
+          required: false
+          schema: { type: integer }
+          example: 12345
+        - $ref: '#/components/parameters/WsfecredIdFacturaQuery'
+        - name: filtro_fecha
+          in: query
+          required: false
+          schema: { type: string, format: date }
+          example: '2021-01-15'
+      responses:
+        '200':
+          description: Facturas disponibles
+          content:
+            application/json:
+              schema:
+                type: object
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsfecred/agt_dpto_cltv/informar_factura:
+    post:
+      tags: [ARCA - wsfecred (Factura de Crédito Electrónica)]
+      summary: Informar factura a agente/departamento CLTV
+      description: Informa una factura al agente/departamento de cobro (informarFacturaAgtDptoCltv).
+      operationId: wsfecredAgtDptoCltvInformarFactura
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_cta_cte, cta_agente]
+              properties:
+                id_cta_cte:
+                  $ref: '#/components/schemas/WsfecredIdCtaCte'
+                cta_agente:
+                  type: object
+                  required: [cuit_agente, id_cuenta]
+                  properties:
+                    cuit_agente: { type: integer }
+                    id_cuenta: { type: string }
+            example:
+              id_cta_cte:
+                cod_cta_cte: 12345
+              cta_agente:
+                cuit_agente: 30712895994
+                id_cuenta: CTA-001
+      responses:
+        '200':
+          description: Resultado de la operación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfecredResultado'
+              example:
+                resultado: A
+                id_cta_cte:
+                  cod_cta_cte: 12345
+                observaciones: []
+                errores: []
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  # --- ARCA wsrgiva (Régimen de Percepción IVA) ---
+  /{account_slug}/arca/wsrgiva/status:
+    get:
+      tags: [ARCA - wsrgiva (Régimen de Percepción IVA)]
+      summary: Estado del servicio wsrgiva
+      description: Verifica conectividad con el servicio ARCA wsrgiva (dummy). Requiere certificado de cuenta.
+      operationId: wsrgivaStatus
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      responses:
+        '200':
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfeStatusResponse'
+              example:
+                appserver: OK
+                authserver: OK
+                dbserver: OK
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsrgiva/constancias/{cuit}:
+    get:
+      tags: [ARCA - wsrgiva (Régimen de Percepción IVA)]
+      summary: Consultar constancia por CUIT
+      description: Obtiene la constancia de percepción IVA para un CUIT (consultarConstanciaPorLote). También acepta `?cuit=` como query param en lugar de path param.
+      operationId: wsrgivaConstancia
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: cuit
+          in: path
+          required: true
+          schema: { type: string }
+          description: CUIT a consultar (con o sin guiones)
+          example: '20-12345678-9'
+      responses:
+        '200':
+          description: Constancia de percepción IVA
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WsrgivaConstancia'
+              example:
+                - fecha_consulta: 23-03-2023
+                  id_contribuyente: '20123456789'
+                  descripcion_contribuyente: RAZON SOCIAL EJEMPLO S.A.
+                  vigencia: 23-09-2023
+                  codigo_leyenda: 18
+                  descripcion_leyenda: 'Alícuota 1% - Responsables inscriptos, sin incumplimientos.'
+                  codigo_seguridad: ABC123
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/wsrgiva/constancias/batch:
+    post:
+      tags: [ARCA - wsrgiva (Régimen de Percepción IVA)]
+      summary: Consultar constancias por lote
+      description: Obtiene constancias de percepción IVA para múltiples CUITs en una sola llamada (consultarConstanciaPorLote). Máximo 10 CUITs por request.
+      operationId: wsrgivaConstanciasBatch
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cuits]
+              properties:
+                cuits:
+                  type: array
+                  items: { type: string }
+                  minItems: 1
+                  maxItems: 10
+            example:
+              cuits:
+                - '20-12345678-9'
+                - '30-98765432-1'
+      responses:
+        '200':
+          description: Constancias de percepción IVA
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WsrgivaConstancia'
+              example:
+                - fecha_consulta: 23-03-2023
+                  id_contribuyente: '20123456789'
+                  descripcion_contribuyente: RAZON SOCIAL EJEMPLO S.A.
+                  vigencia: 23-09-2023
+                  codigo_leyenda: 18
+                  descripcion_leyenda: 'Alícuota 1% - Responsables inscriptos, sin incumplimientos.'
+                  codigo_seguridad: ABC123
+                - fecha_consulta: 23-03-2023
+                  id_contribuyente: '20234567890'
+                  descripcion_contribuyente: OTRA RAZON S.R.L.
+                  vigencia: 23-09-2023
+                  codigo_leyenda: 2
+                  descripcion_leyenda: 'Alícuota 0% - Sujeto Exento o No Alcanzado en IVA'
+                  codigo_seguridad: XYZ789
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  # --- ARCA ws_sr_padron_a100 (Padrón A100 — catálogos) ---
+  /{account_slug}/arca/ws_sr_padron_a100/status:
+    get:
+      tags: [ARCA - ws_sr_padron_a100 (Padrón A100)]
+      summary: Estado del servicio ws_sr_padron_a100
+      description: Verifica conectividad con el servicio ARCA ws_sr_padron_a100 (dummy). Usa certificado de catálogo.
+      operationId: wsSrPadronA100Status
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      responses:
+        '200':
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfeStatusResponse'
+              example:
+                appserver: OK
+                authserver: OK
+                dbserver: OK
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/ws_sr_padron_a100/tipos/{scope}:
+    get:
+      tags: [ARCA - ws_sr_padron_a100 (Padrón A100)]
+      summary: Obtener catálogo (tipos)
+      description: |
+        Devuelve un catálogo parametrizado del padrón A100 (getParameterCollectionByName).
+
+        | scope | Colección ARCA |
+        |---|---|
+        | `jurisdictions` | SUPA.E_PROVINCIA |
+        | `company_types` | SUPA.TIPO_EMPRESA_JURIDICA |
+        | `public_organisms` | SUPA.E_ORGANISMO_INFORMANTE |
+
+        Cada ítem tiene `id`, `decription` (typo de ARCA) y `attribute_list` con pares nombre/valor específicos de cada colección.
+      operationId: wsSrPadronA100Tipos
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: scope
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [jurisdictions, company_types, public_organisms]
+          example: jurisdictions
+      responses:
+        '200':
+          description: Colección de parámetros
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsSrPadronA100Response'
+              examples:
+                jurisdictions:
+                  summary: Jurisdicciones (provincias)
+                  value:
+                    parameter_collection:
+                      name: SUPA.E_PROVINCIA
+                      parameter_list:
+                        - id: 19
+                          decription: MISIONES
+                          attribute_list:
+                            - name: NOMBRE_PROVINCIA
+                              value: MISIONES
+                            - name: COD_PROVINCIA
+                              value: '19'
+                            - name: CODIGO_SIM_PROVINCIA
+                              value: MI
+                    metadata:
+                      fecha_hora: '2017-05-05T10:54:45.034-03:00'
+                      servidor: awshomo.afip.gov.ar
+                company_types:
+                  summary: Tipos de empresa jurídica
+                  value:
+                    parameter_collection:
+                      name: SUPA.TIPO_EMPRESA_JURIDICA
+                      parameter_list:
+                        - id: 1
+                          decription: ALGO
+                          attribute_list:
+                            - name: NOMBRE
+                              value: VALOR
+                    metadata:
+                      fecha_hora: '2017-05-05T10:54:45.034-03:00'
+                      servidor: awshomo.afip.gov.ar
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  # --- ARCA ws_sr_padron_a4 (Padrón A4) ---
+  /{account_slug}/arca/ws_sr_padron_a4/status:
+    get:
+      tags: [ARCA - ws_sr_padron_a4 (Padrón A4)]
+      summary: Estado del servicio ws_sr_padron_a4
+      description: Verifica conectividad con el servicio ARCA ws_sr_padron_a4 (dummy). Usa certificado de catálogo.
+      operationId: wsSrPadronA4Status
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      responses:
+        '200':
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfeStatusResponse'
+              example:
+                appserver: OK
+                authserver: OK
+                dbserver: OK
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/ws_sr_padron_a4/personas/{cuit}:
+    get:
+      tags: [ARCA - ws_sr_padron_a4 (Padrón A4)]
+      summary: Consultar persona por CUIT
+      description: Obtiene datos de una persona física o jurídica por CUIT (getEntities). También acepta `?cuit=` como query param.
+      operationId: wsSrPadronA4Persona
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: cuit
+          in: path
+          required: true
+          schema: { type: string }
+          description: CUIT a consultar (con o sin guiones)
+          example: '20-00000005-1'
+      responses:
+        '200':
+          description: Array de personas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WsSrPadronA4Persona'
+              example:
+                - metadata:
+                    fecha_hora: '2016-12-02T11:12:37.087-03:00'
+                    servidor: setiwebhomoext.afip.gob.ar
+                  persona:
+                    id_persona: '20000000516'
+                    tipo_persona: FISICA
+                    tipo_clave: CUIT
+                    estado_clave: ACTIVO
+                    apellido: ERNESTO DANIEL
+                    nombre: MARCELO NICOLAS
+                    sexo: MASCULINO
+                    mes_cierre: 12
+                    fecha_inscripcion: '2010-10-30T12:00:00-03:00'
+                    fecha_nacimiento: '1891-01-01T12:00:00-03:00'
+                    actividad:
+                      - descripcion_actividad: CONSTRUCCIÓN, REFORMA Y REPARACIÓN DE EDIFICIOS RESIDENCIALES
+                        id_actividad: 410011
+                        nomenclador: 883
+                        orden: 1
+                        periodo: '201311'
+                    domicilio:
+                      - cod_postal: '8371'
+                        descripcion_provincia: NEUQUEN
+                        direccion: LAGUNA LOS SAUCES 2
+                        id_provincia: 20
+                        localidad: JUNIN DE LOS ANDES
+                        tipo_domicilio: FISCAL
+                    impuesto:
+                      - descripcion_impuesto: EMPLEADOR-APORTES SEG.SOCIAL
+                        id_impuesto: 301
+                        estado: ACTIVO
+                        periodo: '200503'
+                    dependencia:
+                      descripcion_dependencia: DISTRITO ZAPALA
+                      id_dependencia: 702
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/ws_sr_padron_a4/personas/batch:
+    post:
+      tags: [ARCA - ws_sr_padron_a4 (Padrón A4)]
+      summary: Consultar personas por lote
+      description: Obtiene datos de múltiples personas por CUIT en una sola llamada (getEntities). Máximo 10 CUITs por request.
+      operationId: wsSrPadronA4PersonasBatch
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cuits]
+              properties:
+                cuits:
+                  type: array
+                  items: { type: string }
+                  minItems: 1
+                  maxItems: 10
+            example:
+              cuits:
+                - '20-00000005-1'
+                - '30-12345678-4'
+      responses:
+        '200':
+          description: Array de personas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WsSrPadronA4Persona'
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  # --- ARCA ws_sr_padron_a5 (Padrón A5) ---
+  /{account_slug}/arca/ws_sr_padron_a5/status:
+    get:
+      tags: [ARCA - ws_sr_padron_a5 (Padrón A5)]
+      summary: Estado del servicio ws_sr_padron_a5
+      description: Verifica conectividad con el servicio ARCA ws_sr_padron_a5 (dummy). Usa certificado de catálogo.
+      operationId: wsSrPadronA5Status
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      responses:
+        '200':
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsfeStatusResponse'
+              example:
+                appserver: OK
+                authserver: OK
+                dbserver: OK
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/ws_sr_padron_a5/personas/{cuit}:
+    get:
+      tags: [ARCA - ws_sr_padron_a5 (Padrón A5)]
+      summary: Consultar persona por CUIT
+      description: Obtiene datos generales y de monotributo de una persona por CUIT (getEntities). También acepta `?cuit=` como query param.
+      operationId: wsSrPadronA5Persona
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+        - name: cuit
+          in: path
+          required: true
+          schema: { type: string }
+          description: CUIT a consultar (con o sin guiones)
+          example: '27-25582042-2'
+      responses:
+        '200':
+          description: Array de personas con datos generales y de monotributo
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WsSrPadronA5Persona'
+              example:
+                - datos_generales:
+                    id_persona: '27255820422'
+                    tipo_persona: FISICA
+                    tipo_clave: CUIT
+                    estado_clave: ACTIVO
+                    apellido: ALEXA
+                    nombre: HILARY
+                    mes_cierre: 12
+                    domicilio_fiscal:
+                      cod_postal: '5152'
+                      descripcion_provincia: CORDOBA
+                      direccion: SAN MARTIN 256
+                      id_provincia: 3
+                      localidad: VILLA CARLOS PAZ
+                      tipo_domicilio: FISCAL
+                    dependencia:
+                      id_dependencia: 272
+                      descripcion_dependencia: AGENCIA-SEDE N.1 CORDOBA
+                      cod_postal: '5000'
+                      descripcion_provincia: CORDOBA
+                      direccion: BOULEVARD SAN JUAN 325 PB
+                      id_provincia: 3
+                      localidad: CORDOBA
+                  datos_monotributo:
+                    actividad_monotributista:
+                      descripcion_actividad: VENTAS
+                      id_actividad: 10
+                      nomenclador: 1
+                      orden: 0
+                      periodo: '201007'
+                    categoria_monotributo:
+                      descripcion_categoria: C VENTAS DE COSAS MUEBLES
+                      id_categoria: 45
+                      id_impuesto: 20
+                      periodo: '201007'
+                    componente_de_sociedad:
+                      ff_relacion: '2008-11-25T06:41:21-03:00'
+                      id_persona_asociada: '23168373384'
+                    impuesto:
+                      descripcion_impuesto: MONOTRIBUTO
+                      id_impuesto: 20
+                      periodo: '201007'
+                  metadata:
+                    fecha_hora: '2017-01-06T11:47:40.464-03:00'
+                    servidor: aws.afip.gob.ar
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
+  /{account_slug}/arca/ws_sr_padron_a5/personas/batch:
+    post:
+      tags: [ARCA - ws_sr_padron_a5 (Padrón A5)]
+      summary: Consultar personas por lote
+      description: Obtiene datos de múltiples personas por CUIT (getEntities). Máximo 10 CUITs por request.
+      operationId: wsSrPadronA5PersonasBatch
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cuits]
+              properties:
+                cuits:
+                  type: array
+                  items: { type: string }
+                  minItems: 1
+                  maxItems: 10
+            example:
+              cuits:
+                - '27-25582042-2'
+                - '30-12345678-4'
+      responses:
+        '200':
+          description: Array de personas con datos generales y de monotributo
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WsSrPadronA5Persona'
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '502': { $ref: '#/components/responses/ArcaError' }
+        '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
 components:
   securitySchemes:
     BearerAuth:
@@ -1131,6 +2272,22 @@ components:
         pattern: '^\d+$'
         default: '1'
         example: '1'
+
+    WsfecredIdComprobante:
+      name: cuit_emisor
+      in: query
+      required: true
+      description: "Identificador de comprobante: cuit_emisor, cod_tipo_cmp, pto_vta y nro_cmp"
+      schema: { type: integer }
+      example: 30712895994
+
+    WsfecredIdFacturaQuery:
+      name: cuit_emisor
+      in: query
+      required: false
+      description: "Parte del id_factura (junto con cod_tipo_cmp, pto_vta, nro_cmp). Alternativo a cod_cta_cte."
+      schema: { type: integer }
+      example: 30712895994
 
   responses:
     Unauthorized:
@@ -1646,3 +2803,375 @@ components:
         fecha_vencimiento_embarque: null
         indicador_precumplido: '-'
         indicador_cumplido: '-'
+    # wsfecred schemas
+    WsfecredTipoItem:
+      type: object
+      properties:
+        codigo: { type: integer }
+        descripcion: { type: string }
+      example:
+        codigo: 1
+        descripcion: Retención 1
+
+    WsfecredIdComprobante:
+      type: object
+      description: Identificador de comprobante (cuit_emisor, cod_tipo_cmp, pto_vta, nro_cmp)
+      required: [cuit_emisor, cod_tipo_cmp, pto_vta, nro_cmp]
+      properties:
+        cuit_emisor: { type: integer }
+        cod_tipo_cmp: { type: integer }
+        pto_vta: { type: integer }
+        nro_cmp: { type: integer }
+      example:
+        cuit_emisor: 30712895994
+        cod_tipo_cmp: 1
+        pto_vta: 1
+        nro_cmp: 1
+
+    WsfecredIdCtaCte:
+      type: object
+      description: Identificador de cuenta corriente. Usar cod_cta_cte o id_factura (mutuamente excluyentes).
+      properties:
+        cod_cta_cte: { type: integer, description: "Código de cuenta corriente" }
+        id_factura:
+          type: object
+          properties:
+            cuit_emisor: { type: integer }
+            cod_tipo_cmp: { type: integer }
+            pto_vta: { type: integer }
+            nro_cmp: { type: integer }
+      example:
+        cod_cta_cte: 12345
+
+    WsfecredComprobante:
+      type: object
+      properties:
+        cbte_nro: { type: integer }
+        cod_tipo_cmp: { type: integer }
+      example:
+        cbte_nro: 1
+        cod_tipo_cmp: 1
+
+    WsfecredCtaCte:
+      type: object
+      properties:
+        cod_cta_cte: { type: integer }
+        estado: { type: string }
+      example:
+        cod_cta_cte: 12345
+        estado: Activa
+
+    WsfecredInfoCtaCte:
+      type: object
+      properties:
+        cod_cta_cte: { type: integer }
+      example:
+        cod_cta_cte: 12345
+
+    WsfecredResultado:
+      type: object
+      properties:
+        resultado: { type: string, enum: [A, R] }
+        id_cta_cte:
+          type: object
+          properties:
+            cod_cta_cte: { type: integer }
+        observaciones: { type: array, items: { type: object } }
+        errores: { type: array, items: { type: object } }
+      example:
+        resultado: A
+        id_cta_cte:
+          cod_cta_cte: 12345
+        observaciones: []
+        errores: []
+
+    # wsrgiva schemas
+    WsrgivaConstancia:
+      type: object
+      properties:
+        fecha_consulta: { type: string, description: "Fecha de consulta en formato DD-MM-YYYY" }
+        id_contribuyente: { type: string, description: "CUIT sin guiones" }
+        descripcion_contribuyente: { type: string }
+        vigencia: { type: string, description: "Fecha de vigencia en formato DD-MM-YYYY" }
+        codigo_leyenda: { type: integer }
+        descripcion_leyenda: { type: string }
+        codigo_seguridad: { type: string }
+      example:
+        fecha_consulta: 23-03-2023
+        id_contribuyente: '20123456789'
+        descripcion_contribuyente: RAZON SOCIAL EJEMPLO S.A.
+        vigencia: 23-09-2023
+        codigo_leyenda: 18
+        descripcion_leyenda: 'Alícuota 1% - Responsables inscriptos, sin incumplimientos.'
+        codigo_seguridad: ABC123
+
+    # ws_sr_padron_a100 schemas
+    WsSrPadronA100Response:
+      type: object
+      properties:
+        parameter_collection:
+          type: object
+          properties:
+            name: { type: string, description: "Nombre de la colección ARCA (ej. SUPA.E_PROVINCIA)" }
+            parameter_list:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: integer }
+                  decription: { type: string, description: "Typo en la API de ARCA (sic)" }
+                  attribute_list:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name: { type: string }
+                        value: { type: string }
+        metadata:
+          type: object
+          properties:
+            fecha_hora: { type: string, format: date-time }
+            servidor: { type: string }
+      example:
+        parameter_collection:
+          name: SUPA.E_PROVINCIA
+          parameter_list:
+            - id: 19
+              decription: MISIONES
+              attribute_list:
+                - name: NOMBRE_PROVINCIA
+                  value: MISIONES
+                - name: COD_PROVINCIA
+                  value: '19'
+                - name: CODIGO_SIM_PROVINCIA
+                  value: MI
+        metadata:
+          fecha_hora: '2017-05-05T10:54:45.034-03:00'
+          servidor: awshomo.afip.gov.ar
+
+    # ws_sr_padron_a4 schemas
+    WsSrPadronA4Persona:
+      type: object
+      properties:
+        metadata:
+          type: object
+          properties:
+            fecha_hora: { type: string, format: date-time }
+            servidor: { type: string }
+        persona:
+          type: object
+          properties:
+            id_persona: { type: string }
+            tipo_persona: { type: string, enum: [FISICA, JURIDICA] }
+            tipo_clave: { type: string }
+            estado_clave: { type: string }
+            apellido: { type: string, description: "Para personas físicas" }
+            nombre: { type: string, description: "Para personas físicas" }
+            razon_social: { type: string, description: "Para personas jurídicas" }
+            sexo: { type: string, nullable: true }
+            numero_documento: { type: integer, nullable: true }
+            mes_cierre: { type: integer }
+            fecha_inscripcion: { type: string, format: date-time, nullable: true }
+            fecha_nacimiento: { type: string, format: date-time, nullable: true }
+            dependencia:
+              type: object
+              properties:
+                descripcion_dependencia: { type: string }
+                id_dependencia: { type: integer }
+            actividad:
+              type: array
+              items:
+                type: object
+                properties:
+                  descripcion_actividad: { type: string }
+                  id_actividad: { type: integer }
+                  nomenclador: { type: integer }
+                  orden: { type: integer }
+                  periodo: { type: string }
+            domicilio:
+              type: array
+              items:
+                type: object
+                properties:
+                  cod_postal: { type: string }
+                  descripcion_provincia: { type: string }
+                  direccion: { type: string }
+                  id_provincia: { type: integer }
+                  localidad: { type: string, nullable: true }
+                  tipo_domicilio: { type: string }
+                  dato_adicional: { type: string, nullable: true }
+                  tipo_dato_adicional: { type: string, nullable: true }
+            impuesto:
+              type: array
+              items:
+                type: object
+                properties:
+                  descripcion_impuesto: { type: string }
+                  id_impuesto: { type: integer }
+                  estado: { type: string }
+                  periodo: { type: string }
+                  dia_periodo: { type: integer, nullable: true }
+                  ff_inscripcion: { type: string, format: date-time, nullable: true }
+            regimen:
+              type: array
+              items:
+                type: object
+                properties:
+                  descripcion_regimen: { type: string }
+                  id_impuesto: { type: integer }
+                  id_regimen: { type: integer }
+                  estado: { type: string }
+                  periodo: { type: string }
+                  tipo_regimen: { type: string }
+      example:
+        metadata:
+          fecha_hora: '2016-12-02T11:12:37.087-03:00'
+          servidor: setiwebhomoext.afip.gob.ar
+        persona:
+          id_persona: '20000000516'
+          tipo_persona: FISICA
+          tipo_clave: CUIT
+          estado_clave: ACTIVO
+          apellido: ERNESTO DANIEL
+          nombre: MARCELO NICOLAS
+          sexo: MASCULINO
+          mes_cierre: 12
+          fecha_inscripcion: '2010-10-30T12:00:00-03:00'
+          actividad:
+            - descripcion_actividad: CONSTRUCCIÓN, REFORMA Y REPARACIÓN DE EDIFICIOS RESIDENCIALES
+              id_actividad: 410011
+              nomenclador: 883
+              orden: 1
+              periodo: '201311'
+          domicilio:
+            - cod_postal: '8371'
+              descripcion_provincia: NEUQUEN
+              direccion: LAGUNA LOS SAUCES 2
+              id_provincia: 20
+              localidad: JUNIN DE LOS ANDES
+              tipo_domicilio: FISCAL
+          impuesto:
+            - descripcion_impuesto: EMPLEADOR-APORTES SEG.SOCIAL
+              id_impuesto: 301
+              estado: ACTIVO
+              periodo: '200503'
+          dependencia:
+            descripcion_dependencia: DISTRITO ZAPALA
+            id_dependencia: 702
+
+    # ws_sr_padron_a5 schemas
+    WsSrPadronA5Persona:
+      type: object
+      properties:
+        datos_generales:
+          type: object
+          properties:
+            id_persona: { type: string }
+            tipo_persona: { type: string, enum: [FISICA, JURIDICA] }
+            tipo_clave: { type: string }
+            estado_clave: { type: string }
+            apellido: { type: string, description: "Para personas físicas" }
+            nombre: { type: string, description: "Para personas físicas" }
+            razon_social: { type: string, description: "Para personas jurídicas" }
+            mes_cierre: { type: integer }
+            domicilio_fiscal:
+              type: object
+              properties:
+                cod_postal: { type: string }
+                descripcion_provincia: { type: string }
+                direccion: { type: string }
+                id_provincia: { type: integer }
+                localidad: { type: string }
+                tipo_domicilio: { type: string }
+            dependencia:
+              type: object
+              properties:
+                id_dependencia: { type: integer }
+                descripcion_dependencia: { type: string }
+                cod_postal: { type: string }
+                descripcion_provincia: { type: string }
+                direccion: { type: string }
+                id_provincia: { type: integer }
+                localidad: { type: string }
+        datos_monotributo:
+          type: object
+          nullable: true
+          properties:
+            actividad_monotributista:
+              type: object
+              properties:
+                descripcion_actividad: { type: string }
+                id_actividad: { type: integer }
+                nomenclador: { type: integer }
+                orden: { type: integer }
+                periodo: { type: string }
+            categoria_monotributo:
+              type: object
+              properties:
+                descripcion_categoria: { type: string }
+                id_categoria: { type: integer }
+                id_impuesto: { type: integer }
+                periodo: { type: string }
+            componente_de_sociedad:
+              type: object
+              nullable: true
+              properties:
+                ff_relacion: { type: string, format: date-time }
+                id_persona_asociada: { type: string }
+            impuesto:
+              type: object
+              properties:
+                descripcion_impuesto: { type: string }
+                id_impuesto: { type: integer }
+                periodo: { type: string }
+        metadata:
+          type: object
+          properties:
+            fecha_hora: { type: string, format: date-time }
+            servidor: { type: string }
+      example:
+        datos_generales:
+          id_persona: '27255820422'
+          tipo_persona: FISICA
+          tipo_clave: CUIT
+          estado_clave: ACTIVO
+          apellido: ALEXA
+          nombre: HILARY
+          mes_cierre: 12
+          domicilio_fiscal:
+            cod_postal: '5152'
+            descripcion_provincia: CORDOBA
+            direccion: SAN MARTIN 256
+            id_provincia: 3
+            localidad: VILLA CARLOS PAZ
+            tipo_domicilio: FISCAL
+          dependencia:
+            id_dependencia: 272
+            descripcion_dependencia: AGENCIA-SEDE N.1 CORDOBA
+            cod_postal: '5000'
+            descripcion_provincia: CORDOBA
+            direccion: BOULEVARD SAN JUAN 325 PB
+            id_provincia: 3
+            localidad: CORDOBA
+        datos_monotributo:
+          actividad_monotributista:
+            descripcion_actividad: VENTAS
+            id_actividad: 10
+            nomenclador: 1
+            orden: 0
+            periodo: '201007'
+          categoria_monotributo:
+            descripcion_categoria: C VENTAS DE COSAS MUEBLES
+            id_categoria: 45
+            id_impuesto: 20
+            periodo: '201007'
+          componente_de_sociedad:
+            ff_relacion: '2008-11-25T06:41:21-03:00'
+            id_persona_asociada: '23168373384'
+          impuesto:
+            descripcion_impuesto: MONOTRIBUTO
+            id_impuesto: 20
+            periodo: '201007'
+        metadata:
+          fecha_hora: '2017-01-06T11:47:40.464-03:00'
+          servidor: aws.afip.gob.ar
