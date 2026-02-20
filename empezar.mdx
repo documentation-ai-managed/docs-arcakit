@@ -1,0 +1,115 @@
+---
+title: Configurar una cuenta en ARCAkit
+description: Desde cero hasta tu primera llamada a ARCA en minutos.
+---
+## Qué es ARCAkit
+
+ARCAkit es una API REST sobre los webservices de ARCA/AFIP. Enviás JSON, obtenés respuestas de facturación electrónica, constancias de inscripción, padrones y otros servicios sin tocar SOAP ni WSDLs.
+
+Podés usar **ARCAkit Cloud** (hosteado por nosotros) o instalar ARCAkit en tu propio servidor (open source, auto-hosteable).
+
+---
+
+## Qué necesitás antes de arrancar
+
+- Acceso a una instancia de ARCAkit (Cloud o la tuya).
+
+- Una cuenta en esa instancia. El registro es por magic link, no hace falta contraseña.
+
+- Un access token con permiso de escritura si vas a facturar o hacer POST.
+
+- El slug de tu cuenta para construir las URLs de ARCA.
+
+- Un certificado digital de ARCA/AFIP configurado en tu cuenta (necesario para facturación y algunos padrones).
+
+---
+
+## Registrate e iniciá sesión
+
+ARCAkit usa autenticación passwordless. Ingresá tu email en la app, recibís un código de 6 caracteres y lo enviás para obtener tu sesión.
+
+No hay contraseña. No hay OAuth. Solo el código que te llega al email.
+
+---
+
+## Creá un token de acceso
+
+En la app: **Mi cuenta → Access tokens → Nuevo token**.
+
+Para facturar o usar endpoints que modifican datos necesitás un token con **permiso de escritura**. Para consultas de solo lectura alcanza con permiso de lectura.
+
+**Guardá el token en un lugar seguro, no se puede volver a ver una vez creado.**
+
+---
+
+## Obtené el slug de tu cuenta
+
+El slug es el identificador de tu cuenta (tenant) y va como prefijo en todas las llamadas a ARCAkit:
+
+```
+GET https://app.arcakit.dev/my/identity
+Authorization: Bearer TU_TOKEN
+Accept: application/json
+```
+
+En la respuesta, buscá `accounts[].slug`. Ese valor — por ejemplo `/1` — es lo que usás en todas las URLs de ARCA:
+
+```
+https://app.arcakit.dev/{slug}/arca/...
+```
+
+Lo encontrás en la URL cuando está logueado via web también.
+
+---
+
+## Configurá tu certificado digital
+
+Para facturación electrónica (WSFE) y la mayoría de los servicios que operan en nombre de un CUIT, tu cuenta necesita un certificado digital emitido por ARCA/AFIP.
+
+Si usás **ARCAkit Cloud**, podés optar por usar nuestro certificado para las operaciones de consulta o subir el tuyo.
+
+Si vas a facturar, seguí estos pasos:
+
+**1. Generá el CSR**
+
+```
+POST https://app.arcakit.dev/{slug}/account/certificate/csr
+Authorization: Bearer TU_TOKEN
+```
+
+Esto te devuelve un archivo `.csr` que tenés que presentar ante ARCA para que te firmen el certificado.
+
+**2. Presentá el CSR ante ARCA**
+
+Entrá al portal de ARCA con tu CUIT, cargá el `.csr` y descargá el certificado firmado (`.crt` o `.pem`).
+
+**3. Subí el certificado firmado**
+
+```
+POST https://app.arcakit.dev/{slug}/account/certificate/upload
+Authorization: Bearer TU_TOKEN
+```
+
+La clave privada se almacena cifrada y nunca se expone por la API.
+
+---
+
+## Verificá la conexión
+
+Con el certificado configurado, probá el estado de un servicio:
+
+```
+GET https://app.arcakit.dev/{slug}/arca/ws_sr_constancia_inscripcion/status
+Authorization: Bearer TU_TOKEN
+Accept: application/json
+```
+
+Si la respuesta es exitosa, tu cuenta está lista para operar.
+
+---
+
+## Siguiente paso
+
+Con tu cuenta configurada, estás listo para emitir tu primer comprobante.
+
+[Emitir tu primera factura →](#)

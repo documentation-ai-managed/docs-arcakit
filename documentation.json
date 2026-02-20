@@ -23,6 +23,10 @@
             "icon": "rocket",
             "pages": [
               {
+                "title": "Empezar",
+                "path": "empezar"
+              },
+              {
                 "title": "Introduccion",
                 "path": "introduccion",
                 "icon": "home"
