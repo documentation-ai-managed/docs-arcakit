@@ -473,7 +473,8 @@ paths:
     get:
       tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Estado del servicio WSFE
-      description: Verifica conectividad con el servicio ARCA WSFE (FEDummy). Requiere certificado de cuenta.
+      description: |
+        FEDummy — Método dummy para verificación de funcionamiento. Sin body en el request. Respuesta AppServer, DbServer, AuthServer (en ARCAkit: app_server, db_server, auth_server).
       operationId: wsfeStatus
       parameters:
         - $ref: '#/components/parameters/AccountSlug'
@@ -496,14 +497,15 @@ paths:
 
         | scope | Operación ARCA |
         |---|---|
-        | `comprobantes` | FEParamGetTiposCbte |
-        | `documentos` | FEParamGetTiposDoc |
-        | `concepto` | FEParamGetTiposConcepto |
-        | `monedas` | FEParamGetTiposMonedas |
-        | `opcional` | FEParamGetTiposOpcional |
-        | `iva` | FEParamGetTiposIva |
-        | `tributos` | FEParamGetTiposTributos |
-        | `condicion_iva_receptor` | FEParamGetTiposIva (condición) — devuelve `cmp_clase` en lugar de `fch_desde`/`fch_hasta` |
+        | `comprobantes` | FEParamGetTiposCbte — recupera el listado de Tipos de Comprobantes utilizables en servicio de autorización. Respuesta CbteTipo: Id, Desc, FchDesde, FchHasta. |
+        | `documentos` | FEParamGetTiposDoc — recupera el listado de Tipos de Documentos utilizables en servicio de autorización. Respuesta DocTipo: Id, Desc, FchDesde, FchHasta. |
+        | `concepto` | FEParamGetTiposConcepto — recupera el listado de identificadores para el campo Concepto. Respuesta ConceptoTipo: Id, Desc, FchDesde, FchHasta. |
+        | `monedas` | FEParamGetTiposMonedas — recupera el listado de monedas utilizables en servicio de autorización. Respuesta Moneda: Id, Desc, FchDesde, FchHasta. |
+        | `opcional` | FEParamGetTiposOpcional — recupera el listado de identificadores para los campos Opcionales. Respuesta OpcionalTipo: Id, Desc, FchDesde, FchHasta. |
+        | `iva` | FEParamGetTiposIva — recupera el listado de Tipos de Iva utilizables en servicio de autorización. Respuesta IvaTipo: Id, Desc, FchDesde, FchHasta. |
+        | `tributos` | FEParamGetTiposTributos — recupera el listado de los diferentes tributos que pueden ser utilizados en el servicio de autorización. Respuesta TributoTipo: Id (short), Desc, FchDesde, FchHasta. |
+        | `condicion_iva_receptor` | FEParamGetCondicionIvaReceptor — recupera la condición frente al IVA del receptor para una clase de comprobante (opcional `clase_cmp`) o para todas si no se especifica. Respuesta: `id`, `desc`, `cmp_clase`. |
+        | `actividades` | FEParamGetActividades — recupera el listado de las diferentes actividades habilitadas para el emisor. Respuesta ActividadesTipo: Id (long), Orden (short), Desc (string). |
       operationId: wsfeTipos
       parameters:
         - $ref: '#/components/parameters/AccountSlug'
@@ -512,8 +514,14 @@ paths:
           required: true
           schema:
             type: string
-            enum: [comprobantes, documentos, concepto, monedas, opcional, iva, tributos, condicion_iva_receptor]
+            enum: [comprobantes, documentos, concepto, monedas, opcional, iva, tributos, condicion_iva_receptor, actividades]
           example: comprobantes
+        - name: clase_cmp
+          in: query
+          required: false
+          description: Solo para scope condicion_iva_receptor. Clase de comprobante (ej. "A"). Si no se envía, se devuelven todas las condiciones IVA receptor.
+          schema:
+            type: string
       responses:
         '200':
           description: Array de ítems del catálogo
@@ -540,7 +548,8 @@ paths:
     get:
       tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Listar puntos de venta
-      description: Puntos de venta del contribuyente (FEParamGetPtosVenta).
+      description: |
+        FEParamGetPtosVenta — Recupera el listado de puntos de venta registrados y su estado. Request solo Auth. Respuesta ResultGet: array PtoVenta (Nro, EmisionTipo, Bloqueado, FchBaja).
       operationId: wsfePuntosVenta
       parameters:
         - $ref: '#/components/parameters/AccountSlug'
@@ -569,7 +578,8 @@ paths:
     get:
       tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Cotización de moneda
-      description: Cotización (tipo de cambio) para la moneda indicada (FEParamGetCotizacion). Ej. moneda_id DOL para dólar.
+      description: |
+        FEParamGetCotizacion — Recupera la cotización de la moneda consultada y su fecha. Request Auth, MonId (moneda_id en path), opcional FchCotiz (no expuesto en esta API). Respuesta ResultGet: MonId, MonCotiz (double), FchCotiz. ARCAkit devuelve `moneda_id` (MonId) y `cotizacion` (MonCotiz). Ej. moneda_id DOL para dólar.
       operationId: wsfeCotizacion
       parameters:
         - $ref: '#/components/parameters/AccountSlug'
@@ -587,8 +597,8 @@ paths:
               schema:
                 type: object
                 properties:
-                  moneda_id: { type: string }
-                  cotizacion: { type: number }
+                  moneda_id: { type: string, description: "MonId (eco del request)" }
+                  cotizacion: { type: number, description: "MonCotiz — tipo de cambio" }
               example:
                 moneda_id: DOL
                 cotizacion: 3.976
@@ -600,7 +610,8 @@ paths:
     get:
       tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Cantidad máxima de registros por lote
-      description: Cantidad máxima de comprobantes por request de autorización (FECompTotXRequest).
+      description: |
+        FECompTotXRequest — Retorna la cantidad máxima de registros que puede tener una invocación al método FECAESolicitar / FECAEARegInformativo. Respuesta RegXReq; en ARCAkit se expone como `cant_max_registros_x_lote`.
       operationId: wsfeLoteMax
       parameters:
         - $ref: '#/components/parameters/AccountSlug'
@@ -612,7 +623,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  cant_max_registros_x_lote: { type: integer }
+                  cant_max_registros_x_lote: { type: integer, description: "RegXReq — máximo comprobantes por request (FECAESolicitar / FECAEARegInformativo)" }
               example:
                 cant_max_registros_x_lote: 250
         '502': { $ref: '#/components/responses/ArcaError' }
@@ -622,7 +633,8 @@ paths:
     get:
       tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Último comprobante autorizado
-      description: Último número de comprobante autorizado para el punto de venta y tipo (FECompUltimoAutorizado).
+      description: |
+        FECompUltimoAutorizado — Retorna el último comprobante autorizado para el tipo de comprobante / CUIT / punto de venta ingresado / Tipo de Emisión. Request PtoVta, CbteTipo. Respuesta PtoVta, CbteTipo, CbteNro.
       operationId: wsfeUltimoComprobanteAutorizado
       parameters:
         - $ref: '#/components/parameters/AccountSlug'
@@ -644,9 +656,9 @@ paths:
               schema:
                 type: object
                 properties:
-                  pto_vta: { type: integer }
-                  cbte_tipo: { type: integer }
-                  cbte_nro: { type: integer }
+                  pto_vta: { type: integer, description: "PtoVta (eco del request)" }
+                  cbte_tipo: { type: integer, description: "CbteTipo (eco del request)" }
+                  cbte_nro: { type: integer, description: "CbteNro — último número autorizado" }
               example:
                 pto_vta: 1
                 cbte_tipo: 1
@@ -659,7 +671,8 @@ paths:
     get:
       tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Consultar comprobante
-      description: Obtiene datos de un comprobante por punto de venta, tipo y número (FECompConsultar).
+      description: |
+        FECompConsultar — Consulta Comprobante emitido y su código. Request FeCompConsReq (CbteTipo, CbteNro, PtoVta). Respuesta ResultGet: Resultado, CodAutorizacion (CAE), EmisionTipo, FchVto, FchProceso, Observaciones, PtoVta, CbteTipo (y datos del comprobante si aplica).
       operationId: wsfeConsultarComprobante
       parameters:
         - $ref: '#/components/parameters/AccountSlug'
@@ -715,10 +728,13 @@ paths:
                             base_imp: { type: number }
                             importe: { type: number }
                   resultado: { type: string, enum: [ A, R ] }
-                  cod_autorizacion: { type: string }
+                  cod_autorizacion: { type: string, description: "CAE / CodAutorizacion" }
                   emision_tipo: { type: string }
                   fch_vto: { type: string }
                   fch_proceso: { type: string }
+                  observaciones:
+                    type: array
+                    items: { type: object, properties: { code: { type: integer }, msg: { type: string } } }
                   pto_vta: { type: integer }
                   cbte_tipo: { type: integer }
               example:
@@ -749,6 +765,7 @@ paths:
                 emision_tipo: CAE
                 fch_vto: '20110123'
                 fch_proceso: '20110113165500'
+                observaciones: []
                 pto_vta: 1
                 cbte_tipo: 1
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
@@ -759,7 +776,19 @@ paths:
     post:
       tags: [ARCA - wsfe (Facturación Electrónica)]
       summary: Autorizar comprobantes (solicitar CAE)
-      description: Autoriza uno o más comprobantes (FECAESolicitar). Body con cbte_tipo, pto_vta y array comprobantes. Ver documentación para estructura de cada comprobante.
+      description: |
+        FECAESolicitar — Solicitud de Código de Autorización Electrónico (CAE). Autoriza uno o más comprobantes; la respuesta incluye por cada uno `CAE`, `CAEFchVto` (y en ARCAkit también `resultado`, `observaciones`).
+
+        **Campo `cbte_nro`**: ARCAkit usa un único número por comprobante. El campo se mapea
+        internamente a `CbteDesde=CbteHasta=cbte_nro` en el SOAP request de ARCA.
+
+        **Resultado por comprobante** — cada item del array de respuesta incluye `resultado`:
+        - `A` — Aprobado. El comprobante fue autorizado y tiene `cae` + `cae_fch_vto`.
+        - `R` — Rechazado. ARCA denegó la autorización; revisar `observaciones`.
+        - `P` — No procesado. ARCA no procesó el item porque un comprobante anterior
+          en el mismo lote fue rechazado. ARCA aplica **consecutividad**: si el nro `N`
+          es rechazado, los nros `N+1`, `N+2`, … del mismo lote también quedan como `P`.
+          Corrija el comprobante rechazado y reintente desde ese número.
       operationId: wsfeAutorizarComprobantes
       parameters:
         - $ref: '#/components/parameters/AccountSlug'
@@ -831,6 +860,41 @@ paths:
                           msg: Msg 1
                         - code: 10018
                           msg: Msg 2
+                parcial:
+                  summary: Lote parcial — primer comprobante aprobado, segundo rechazado, tercero no procesado (P)
+                  value:
+                    - concepto: 1
+                      doc_tipo: 80
+                      doc_nro: 30521189203
+                      cbte_desde: 101
+                      cbte_hasta: 101
+                      cbte_fch: '20110113'
+                      resultado: A
+                      cae: '61023008595705'
+                      cae_fch_vto: '20110123'
+                      observaciones: []
+                    - concepto: 1
+                      doc_tipo: 80
+                      doc_nro: 30521189203
+                      cbte_desde: 102
+                      cbte_hasta: 102
+                      cbte_fch: '20110113'
+                      resultado: R
+                      cae: null
+                      cae_fch_vto: null
+                      observaciones:
+                        - code: 10048
+                          msg: El numero de comprobante es incorrecto
+                    - concepto: 1
+                      doc_tipo: 80
+                      doc_nro: 30521189203
+                      cbte_desde: 103
+                      cbte_hasta: 103
+                      cbte_fch: '20110113'
+                      resultado: P
+                      cae: null
+                      cae_fch_vto: null
+                      observaciones: []
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '502': { $ref: '#/components/responses/ArcaError' }
         '503': { $ref: '#/components/responses/CertificateNotConfigured' }
@@ -2539,10 +2603,11 @@ components:
     # WSFE (Facturación electrónica)
     WsfeStatusResponse:
       type: object
+      description: FEDummyResult — AppServer, DbServer, AuthServer (estado de cada componente del servicio).
       properties:
-        app_server: { type: string }
-        db_server: { type: string }
-        auth_server: { type: string }
+        app_server: { type: string, description: "AppServer" }
+        db_server: { type: string, description: "DbServer" }
+        auth_server: { type: string, description: "AuthServer" }
       example:
         app_server: OK
         db_server: OK
@@ -2550,12 +2615,14 @@ components:
 
     WsfeTipoItem:
       type: object
+      description: Ítems de catálogo; campos según scope (fch_desde/fch_hasta para tipos con vigencia, cmp_clase para condicion_iva_receptor, orden para actividades).
       properties:
         id: { description: "Id numérico o código (ej. monedas PES, DOL)", oneOf: [ { type: integer }, { type: string } ] }
         desc: { type: string }
         fch_desde: { type: string }
         fch_hasta: { type: string, nullable: true }
         cmp_clase: { type: string, description: "Solo condicion_iva_receptor" }
+        orden: { type: integer, description: "Solo actividades" }
       example:
         id: 1
         desc: Factura A
@@ -2564,11 +2631,12 @@ components:
 
     WsfePuntoVenta:
       type: object
+      description: PtoVenta — punto de venta registrado y su estado (FEParamGetPtosVenta).
       properties:
-        nro: { type: integer }
-        emision_tipo: { type: string }
-        bloqueado: { type: boolean }
-        fch_baja: { type: string, nullable: true }
+        nro: { type: integer, description: "Nro" }
+        emision_tipo: { type: string, description: "EmisionTipo (ej. CAE, CAEA)" }
+        bloqueado: { type: boolean, description: "Bloqueado" }
+        fch_baja: { type: string, nullable: true, description: "FchBaja — fecha de baja o null si activo" }
       example:
         nro: 1
         emision_tipo: CAE
@@ -2680,7 +2748,7 @@ components:
         cbte_desde: { type: integer }
         cbte_hasta: { type: integer }
         cbte_fch: { type: string }
-        resultado: { type: string, enum: [ A, R ] }
+        resultado: { type: string, enum: [ A, R, P ], description: 'A=Aprobado, R=Rechazado, P=No procesado (por falla de consecutividad en item anterior del lote)' }
         cae: { type: string, nullable: true }
         cae_fch_vto: { type: string, nullable: true }
         observaciones:

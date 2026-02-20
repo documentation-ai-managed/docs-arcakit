@@ -54,11 +54,6 @@
             "openapi": "api-reference/arcakit-api.yaml"
           }
         ]
-      },
-      {
-        "tab": "Changelog",
-        "icon": "clock",
-        "pages": []
       }
     ]
   },
