@@ -1,10 +1,33 @@
 ---
 title: ARCAkit (la API de ARCA/AFIP)
-description: >-
-  ARCAkit te ayuda a integrar ARCA/AFIP con una API REST simple. Documentación 
-
-  completa: facturación electrónica, webservices ARCA/AFIP, certificados
-  digitales, 
-
-  WSAA y guías paso a paso.
+description: >
+  ARCAkit te ayuda a integrar los webservices de ARCA/AFIP con una API REST
+  simple.
 ---
+## Por qué existe ARCAkit
+
+Teníamos clientes. Teníamos que facturar. Y teníamos ARCA.
+
+Durante meses, el proceso era siempre el mismo: entrar al portal, cargar los datos a mano, una factura por vez, para cada cliente. Diez clientes, quince clientes, multiplicá eso por cada mes, por cada servicio, por cada vez que el portal tardaba, fallaba, o simplemente no respondía.
+
+Probamos con varios softwares de facturación. Los que existían eran caros, lentos, y seguían requiriendo intervención manual. Y lo peor: no sabías bien qué hacían con los datos de tus clientes ni dónde los guardaban.
+
+**Así que decidimos integrarnos directo con ARCA. Y acá el chiste de conectarse a SOAP.&#x20;**&#x4C;&#x61;**&#x20;**&#x64;ocumentación oficial de ARCA que asume que tenés tiempo libre y paciencia infinita. No teníamos ninguna de las dos cosas.
+
+Después de demasiadas horas parseando WSDLs y debuggeando errores crípticos de WSAA, teníamos algo que funcionaba. Una API que le tirás un JSON y te devuelve magia.
+
+**Decidimos abrirla.**
+
+No porque fuera obligatorio, sino porque el problema que teníamos nosotros lo tienen todos los que intentan integrar ARCA/AFIP en Argentina (y cualquier compania que viene a Argentina y necesita emitir comprobantes). Y porque una herramienta así merece vivir en un lugar donde pueda ser auditada, mejorada, y deployada por quien la necesite, en su propio servidor, con sus propios datos, sin depender de un SaaS que no conocés.
+
+**ARCAkit** es open source, self-hosteable, y está diseñada con aislamiento de datos desde el principio. Cada cliente/tenant maneja sus propios datos. Nada sale de tu infraestructura si no querés que salga.
+
+Para los que prefieren no gestionar la infraestructura, existe **ARCAkit Cloud**. la versión hosteada con soporte incluido. El mismo motor, sin el overhead operativo, y alguien del otro lado cuando algo no funciona.
+
+Si llegaste hasta acá, probablemente ya intentaste integrar ARCA/AFIP de alguna forma. Contanos cómo te fue, estamos armando la comunidad en Discord y es el lugar donde respondemos dudas, discutimos integraciones, y seguimos construyendo esto junto a los que lo usan.
+
+[Unirse al Discord →](#)
+
+¿Listo para empezar? La documentación te lleva desde cero hasta tu primera factura electrónica.
+
+[Empezar a facturar →](#)
