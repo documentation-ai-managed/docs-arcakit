@@ -2515,6 +2515,7 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '502': { $ref: '#/components/responses/ArcaError' }
         '503': { $ref: '#/components/responses/CertificateNotConfigured' }
+
 components:
   securitySchemes:
     BearerAuth:
