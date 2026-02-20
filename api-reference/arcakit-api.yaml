@@ -26,6 +26,8 @@ tags:
     description: Información de identidad y cuentas del usuario
   - name: Signup
     description: Creación de nuevas cuentas
+  - name: Certificate
+    description: Gestión del certificado digital ARCA de la cuenta — consulta de estado, generación de CSR, carga de clave privada y certificado, y eliminación.  
   - name: ARCA - ws_sr_constancia_inscripcion (Constancia Inscripción)
     description: ws_sr_constancia_inscripcion (Datos de entidad por CUIT)
   - name: ARCA - wsfe (Facturación Electrónica)
@@ -42,8 +44,6 @@ tags:
     description: Consulta de datos de personas físicas y jurídicas por CUIT (getEntities). Usa certificado de catálogo.
   - name: ARCA - ws_sr_padron_a5 (Padrón A5)
     description: Consulta de datos de personas por CUIT, orientado a monotributistas — datos_generales + datos_monotributo (getEntities). Usa certificado de catálogo.
-  - name: Certificate
-    description: Gestión del certificado digital ARCA de la cuenta — consulta de estado, generación de CSR, carga de clave privada y certificado, y eliminación.
 
 paths:
   /session:
@@ -226,6 +226,209 @@ paths:
           $ref: '#/components/responses/UnprocessableEntity'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    # --- Certificate management ---
+
+  /{account_slug}/account/certificate:
+    get:
+      tags: [Certificate]
+      summary: Consultar estado del certificado
+      description: Retorna el estado y metadatos del certificado digital ARCA configurado para la cuenta. Nunca incluye la clave privada.
+      operationId: getCertificate
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      responses:
+        '200':
+          description: Estado del certificado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  certificate:
+                    $ref: '#/components/schemas/CertificateMetadata'
+              examples:
+                configured:
+                  summary: Certificado configurado
+                  value:
+                    certificate:
+                      configured: true
+                      subject: /C=AR/O=Acme Corp/CN=arcakit/serialNumber=CUIT 20123456789
+                      expires_at: '2026-12-31T23:59:59Z'
+                      fingerprint_sha256: a1b2c3d4e5f6...
+                notConfigured:
+                  summary: Sin certificado
+                  value:
+                    certificate:
+                      configured: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /{account_slug}/account/certificate/csr:
+    post:
+      tags: [Certificate]
+      summary: Generar CSR
+      description: Genera una nueva clave privada y un CSR (Certificate Signing Request) para la cuenta. El CSR se debe presentar ante ARCA para obtener el certificado firmado.
+      operationId: generateCsr
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      responses:
+        '201':
+          description: CSR generado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  csr:
+                    type: string
+                    description: Contenido PEM del CSR generado
+              example:
+                csr: "-----BEGIN CERTIFICATE REQUEST-----\nMIIC....\n-----END CERTIFICATE REQUEST-----\n"
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    get:
+      tags: [Certificate]
+      summary: Descargar CSR
+      description: Retorna el CSR generado previamente. En JSON devuelve el contenido PEM; en otros formatos (text/plain, application/pkcs10) envía el archivo para descarga.
+      operationId: downloadCsr
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      responses:
+        '200':
+          description: CSR disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  csr:
+                    type: string
+                    description: Contenido PEM del CSR
+              example:
+                csr: "-----BEGIN CERTIFICATE REQUEST-----\nMIIC....\n-----END CERTIFICATE REQUEST-----\n"
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /{account_slug}/account/certificate/upload:
+    post:
+      tags: [Certificate]
+      summary: Cargar certificado
+      description: |
+        Carga el certificado digital firmado por ARCA (formato PEM). Enviar el contenido PEM en el campo `cert` (string) o como archivo en `certificate_file` (multipart).
+      operationId: uploadCertificate
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cert:
+                  type: string
+                  description: Contenido PEM del certificado
+            example:
+              cert: "-----BEGIN CERTIFICATE-----\nMIID....\n-----END CERTIFICATE-----\n"
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                certificate_file:
+                  type: string
+                  format: binary
+                  description: Archivo PEM del certificado
+      responses:
+        '201':
+          description: Certificado cargado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  certificate:
+                    $ref: '#/components/schemas/CertificateMetadata'
+              example:
+                certificate:
+                  configured: true
+                  subject: /C=AR/O=Acme Corp/CN=arcakit/serialNumber=CUIT 20123456789
+                  expires_at: '2026-12-31T23:59:59Z'
+                  fingerprint_sha256: a1b2c3d4e5f6...
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /{account_slug}/account/certificate/private_key:
+    post:
+      tags: [Certificate]
+      summary: Cargar clave privada
+      description: |
+        Carga la clave privada asociada al certificado (formato PEM). Enviar el contenido PEM en el campo `private_key` (string) o como archivo en `private_key_file` (multipart).
+
+        **Importante**: la clave privada se almacena cifrada y nunca se expone en ninguna respuesta de la API.
+      operationId: uploadPrivateKey
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                private_key:
+                  type: string
+                  description: Contenido PEM de la clave privada
+            example:
+              private_key: "-----BEGIN RSA PRIVATE KEY-----\nMIIE....\n-----END RSA PRIVATE KEY-----\n"
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                private_key_file:
+                  type: string
+                  format: binary
+                  description: Archivo PEM de la clave privada
+      responses:
+        '201':
+          description: Clave privada cargada exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  certificate:
+                    $ref: '#/components/schemas/CertificateMetadata'
+              example:
+                certificate:
+                  configured: true
+                  subject: /C=AR/O=Acme Corp/CN=arcakit/serialNumber=CUIT 20123456789
+                  expires_at: '2026-12-31T23:59:59Z'
+                  fingerprint_sha256: a1b2c3d4e5f6...
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /{account_slug}/account/certificate/deletion:
+    delete:
+      tags: [Certificate]
+      summary: Eliminar certificado
+      description: Elimina el certificado y la clave privada configurados para la cuenta. Los servicios ARCA dejarán de funcionar hasta que se configure un nuevo certificado.
+      operationId: deleteCertificate
+      parameters:
+        - $ref: '#/components/parameters/AccountSlug'
+      responses:
+        '204':
+          description: Certificado eliminado exitosamente
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -2312,209 +2515,6 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '502': { $ref: '#/components/responses/ArcaError' }
         '503': { $ref: '#/components/responses/CertificateNotConfigured' }
-
-  # --- Certificate management ---
-  /{account_slug}/account/certificate:
-    get:
-      tags: [Certificate]
-      summary: Consultar estado del certificado
-      description: Retorna el estado y metadatos del certificado digital ARCA configurado para la cuenta. Nunca incluye la clave privada.
-      operationId: getCertificate
-      parameters:
-        - $ref: '#/components/parameters/AccountSlug'
-      responses:
-        '200':
-          description: Estado del certificado
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  certificate:
-                    $ref: '#/components/schemas/CertificateMetadata'
-              examples:
-                configured:
-                  summary: Certificado configurado
-                  value:
-                    certificate:
-                      configured: true
-                      subject: /C=AR/O=Acme Corp/CN=arcakit/serialNumber=CUIT 20123456789
-                      expires_at: '2026-12-31T23:59:59Z'
-                      fingerprint_sha256: a1b2c3d4e5f6...
-                notConfigured:
-                  summary: Sin certificado
-                  value:
-                    certificate:
-                      configured: false
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /{account_slug}/account/certificate/csr:
-    post:
-      tags: [Certificate]
-      summary: Generar CSR
-      description: Genera una nueva clave privada y un CSR (Certificate Signing Request) para la cuenta. El CSR se debe presentar ante ARCA para obtener el certificado firmado.
-      operationId: generateCsr
-      parameters:
-        - $ref: '#/components/parameters/AccountSlug'
-      responses:
-        '201':
-          description: CSR generado exitosamente
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  csr:
-                    type: string
-                    description: Contenido PEM del CSR generado
-              example:
-                csr: "-----BEGIN CERTIFICATE REQUEST-----\nMIIC....\n-----END CERTIFICATE REQUEST-----\n"
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-    get:
-      tags: [Certificate]
-      summary: Descargar CSR
-      description: Retorna el CSR generado previamente. En JSON devuelve el contenido PEM; en otros formatos (text/plain, application/pkcs10) envía el archivo para descarga.
-      operationId: downloadCsr
-      parameters:
-        - $ref: '#/components/parameters/AccountSlug'
-      responses:
-        '200':
-          description: CSR disponible
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  csr:
-                    type: string
-                    description: Contenido PEM del CSR
-              example:
-                csr: "-----BEGIN CERTIFICATE REQUEST-----\nMIIC....\n-----END CERTIFICATE REQUEST-----\n"
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /{account_slug}/account/certificate/upload:
-    post:
-      tags: [Certificate]
-      summary: Cargar certificado
-      description: |
-        Carga el certificado digital firmado por ARCA (formato PEM). Enviar el contenido PEM en el campo `cert` (string) o como archivo en `certificate_file` (multipart).
-      operationId: uploadCertificate
-      parameters:
-        - $ref: '#/components/parameters/AccountSlug'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                cert:
-                  type: string
-                  description: Contenido PEM del certificado
-            example:
-              cert: "-----BEGIN CERTIFICATE-----\nMIID....\n-----END CERTIFICATE-----\n"
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                certificate_file:
-                  type: string
-                  format: binary
-                  description: Archivo PEM del certificado
-      responses:
-        '201':
-          description: Certificado cargado exitosamente
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  certificate:
-                    $ref: '#/components/schemas/CertificateMetadata'
-              example:
-                certificate:
-                  configured: true
-                  subject: /C=AR/O=Acme Corp/CN=arcakit/serialNumber=CUIT 20123456789
-                  expires_at: '2026-12-31T23:59:59Z'
-                  fingerprint_sha256: a1b2c3d4e5f6...
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /{account_slug}/account/certificate/private_key:
-    post:
-      tags: [Certificate]
-      summary: Cargar clave privada
-      description: |
-        Carga la clave privada asociada al certificado (formato PEM). Enviar el contenido PEM en el campo `private_key` (string) o como archivo en `private_key_file` (multipart).
-
-        **Importante**: la clave privada se almacena cifrada y nunca se expone en ninguna respuesta de la API.
-      operationId: uploadPrivateKey
-      parameters:
-        - $ref: '#/components/parameters/AccountSlug'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                private_key:
-                  type: string
-                  description: Contenido PEM de la clave privada
-            example:
-              private_key: "-----BEGIN RSA PRIVATE KEY-----\nMIIE....\n-----END RSA PRIVATE KEY-----\n"
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                private_key_file:
-                  type: string
-                  format: binary
-                  description: Archivo PEM de la clave privada
-      responses:
-        '201':
-          description: Clave privada cargada exitosamente
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  certificate:
-                    $ref: '#/components/schemas/CertificateMetadata'
-              example:
-                certificate:
-                  configured: true
-                  subject: /C=AR/O=Acme Corp/CN=arcakit/serialNumber=CUIT 20123456789
-                  expires_at: '2026-12-31T23:59:59Z'
-                  fingerprint_sha256: a1b2c3d4e5f6...
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /{account_slug}/account/certificate/deletion:
-    delete:
-      tags: [Certificate]
-      summary: Eliminar certificado
-      description: Elimina el certificado y la clave privada configurados para la cuenta. Los servicios ARCA dejarán de funcionar hasta que se configure un nuevo certificado.
-      operationId: deleteCertificate
-      parameters:
-        - $ref: '#/components/parameters/AccountSlug'
-      responses:
-        '204':
-          description: Certificado eliminado exitosamente
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
 components:
   securitySchemes:
     BearerAuth:
